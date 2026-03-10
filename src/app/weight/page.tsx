@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Scale, Plus, Camera, Trash2, ChevronLeft, ChevronRight, Image as ImageIcon } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Scale, Plus, Camera, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import {
-  getWeightRecords,
-  saveWeightRecord,
-  deleteWeightRecord,
+  getWeightRecordsDB,
+  saveWeightRecordDB,
+  deleteWeightRecordDB,
   generateId,
-} from '@/lib/storage';
+} from '@/lib/database';
 import type { WeightRecord } from '@/lib/types';
 
 export default function WeightPage() {
@@ -22,33 +22,34 @@ export default function WeightPage() {
   const [viewingPhoto, setViewingPhoto] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    setMounted(true);
-    setRecords(getWeightRecords());
-    setDate(new Date().toISOString().split('T')[0]);
+  const loadRecords = useCallback(async () => {
+    try {
+      setRecords(await getWeightRecordsDB());
+    } catch (err) {
+      console.error('Weight load error:', err);
+    }
   }, []);
 
-  const handleSave = () => {
+  useEffect(() => {
+    setMounted(true);
+    setDate(new Date().toISOString().split('T')[0]);
+    loadRecords();
+  }, [loadRecords]);
+
+  const handleSave = async () => {
     const w = parseFloat(weight);
     if (!w || !date) return;
-
     const record: WeightRecord = {
-      id: generateId(),
-      date,
-      weight: w,
-      photo,
-      createdAt: new Date().toISOString(),
+      id: generateId(), date, weight: w, photo, createdAt: new Date().toISOString(),
     };
-    saveWeightRecord(record);
-    setRecords(getWeightRecords());
-    setWeight('');
-    setPhoto(undefined);
-    setShowForm(false);
+    await saveWeightRecordDB(record);
+    await loadRecords();
+    setWeight(''); setPhoto(undefined); setShowForm(false);
   };
 
-  const handleDelete = (id: string) => {
-    deleteWeightRecord(id);
-    setRecords(getWeightRecords());
+  const handleDelete = async (id: string) => {
+    await deleteWeightRecordDB(id);
+    await loadRecords();
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -67,247 +68,154 @@ export default function WeightPage() {
 
   if (!mounted) return null;
 
-  // カレンダー用データ
   const year = selectedMonth.getFullYear();
   const month = selectedMonth.getMonth();
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-
   const calendarDays: (number | null)[] = [];
   for (let i = 0; i < firstDay; i++) calendarDays.push(null);
   for (let i = 1; i <= daysInMonth; i++) calendarDays.push(i);
 
-  const monthRecords = records.filter((r) => {
+  const monthRecords = records.filter(r => {
     const d = new Date(r.date);
     return d.getFullYear() === year && d.getMonth() === month;
   });
 
-  // グラフ用データ（直近30日）
-  const chartData = records
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(-30)
-    .map((r) => ({
-      day: `${new Date(r.date).getMonth() + 1}/${new Date(r.date).getDate()}`,
-      weight: r.weight,
-    }));
+  const chartData = records.slice(-14).map(r => ({
+    day: `${new Date(r.date).getMonth() + 1}/${new Date(r.date).getDate()}`,
+    weight: r.weight,
+  }));
 
   return (
-    <div className="space-y-6 fade-in">
-      <div className="flex items-center justify-between pt-2">
+    <div className="space-y-5 fade-in">
+      <div className="flex items-center justify-between pt-3">
         <div>
-          <h1 className="text-2xl font-bold gradient-text flex items-center gap-2">
-            <Scale size={24} />
-            体重記録
-          </h1>
-          <p className="text-white/40 text-sm mt-1">毎日の体重を写真付きで記録</p>
+          <h1 className="text-xl font-bold gradient-text flex items-center gap-2"><Scale size={20} />体重記録</h1>
+          <p className="text-white/40 text-xs mt-1">毎日の体重を写真付きで記録</p>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="w-10 h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 flex items-center justify-center transition-transform hover:scale-105"
-          id="btn-add-weight"
-        >
-          <Plus size={20} className="text-white" />
+        <button onClick={() => setShowForm(!showForm)}
+          className="w-11 h-11 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 flex items-center justify-center active:scale-95" id="btn-add-weight">
+          {showForm ? <X size={20} className="text-white" /> : <Plus size={20} className="text-white" />}
         </button>
       </div>
 
       {/* 入力フォーム */}
       {showForm && (
         <div className="glass-card slide-up space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-white/50 mb-1.5 block">日付</label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="input-field"
-                id="input-weight-date"
-              />
+              <label className="text-xs text-white/50 mb-1 block">日付</label>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} className="input-field" id="input-weight-date" />
             </div>
             <div>
-              <label className="text-xs text-white/50 mb-1.5 block">体重 (kg)</label>
-              <input
-                type="number"
-                step="0.1"
-                value={weight}
-                onChange={(e) => setWeight(e.target.value)}
-                placeholder="65.0"
-                className="input-field"
-                id="input-weight-value"
-              />
+              <label className="text-xs text-white/50 mb-1 block">体重 (kg)</label>
+              <input type="number" step="0.1" value={weight} onChange={e => setWeight(e.target.value)} placeholder="65.0" className="input-field" id="input-weight-value" />
             </div>
           </div>
-
-          {/* 写真アップロード */}
           <div>
-            <label className="text-xs text-white/50 mb-1.5 block">体重計の写真（任意）</label>
-            <input
-              type="file"
-              accept="image/*"
-              ref={fileRef}
-              onChange={handlePhotoUpload}
-              className="hidden"
-            />
+            <input type="file" accept="image/*" capture="environment" ref={fileRef} onChange={handlePhotoUpload} className="hidden" />
             {photo ? (
               <div className="relative rounded-xl overflow-hidden">
-                <img src={photo} alt="体重計" className="w-full h-40 object-cover" />
-                <button
-                  onClick={() => setPhoto(undefined)}
-                  className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center"
-                >
+                <img src={photo} alt="体重計" className="w-full h-36 object-cover" />
+                <button onClick={() => setPhoto(undefined)} className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center">
                   <Trash2 size={14} className="text-white" />
                 </button>
               </div>
             ) : (
-              <button
-                onClick={() => fileRef.current?.click()}
-                className="w-full py-8 border-2 border-dashed border-white/15 rounded-xl flex flex-col items-center gap-2 text-white/30 hover:text-white/50 hover:border-white/25 transition-all"
-                id="btn-upload-photo"
-              >
-                <Camera size={24} />
-                <span className="text-xs">タップして写真を追加</span>
+              <button onClick={() => fileRef.current?.click()}
+                className="w-full py-6 border-2 border-dashed border-white/15 rounded-xl flex flex-col items-center gap-1.5 text-white/30 active:bg-white/5 transition-all" id="btn-upload-photo">
+                <Camera size={22} />
+                <span className="text-xs">写真を追加</span>
               </button>
             )}
           </div>
-
-          <button
-            onClick={handleSave}
-            disabled={!weight}
-            className="w-full btn-primary disabled:opacity-30 disabled:cursor-not-allowed"
-            id="btn-save-weight"
-          >
-            記録する
-          </button>
+          <button onClick={handleSave} disabled={!weight} className="w-full btn-primary disabled:opacity-30" id="btn-save-weight">記録する</button>
         </div>
       )}
 
       {/* カレンダー */}
       <div className="glass-card">
-        <div className="flex items-center justify-between mb-4">
-          <button onClick={() => changeMonth(-1)} className="p-2 rounded-lg hover:bg-white/10 transition-colors">
-            <ChevronLeft size={18} className="text-white/50" />
-          </button>
-          <h3 className="text-sm font-semibold text-white/70">
-            {year}年{month + 1}月
-          </h3>
-          <button onClick={() => changeMonth(1)} className="p-2 rounded-lg hover:bg-white/10 transition-colors">
-            <ChevronRight size={18} className="text-white/50" />
-          </button>
+        <div className="flex items-center justify-between mb-3">
+          <button onClick={() => changeMonth(-1)} className="p-2 rounded-lg active:bg-white/10"><ChevronLeft size={16} className="text-white/50" /></button>
+          <h3 className="text-sm font-semibold text-white/70">{year}年{month + 1}月</h3>
+          <button onClick={() => changeMonth(1)} className="p-2 rounded-lg active:bg-white/10"><ChevronRight size={16} className="text-white/50" /></button>
         </div>
-        <div className="grid grid-cols-7 gap-1 text-center text-[10px] text-white/30 mb-2">
-          {['日', '月', '火', '水', '木', '金', '土'].map((d) => (
-            <div key={d}>{d}</div>
-          ))}
+        <div className="grid grid-cols-7 gap-0.5 text-center text-[9px] text-white/30 mb-1">
+          {['日', '月', '火', '水', '木', '金', '土'].map(d => <div key={d}>{d}</div>)}
         </div>
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid grid-cols-7 gap-0.5">
           {calendarDays.map((day, i) => {
             if (day === null) return <div key={i} />;
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const record = monthRecords.find((r) => r.date === dateStr);
+            const record = monthRecords.find(r => r.date === dateStr);
             return (
-              <div
-                key={i}
-                className={`aspect-square rounded-lg flex flex-col items-center justify-center text-xs transition-all ${
-                  record
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                    : 'text-white/30 hover:bg-white/5'
-                }`}
-              >
-                <span className="text-[10px]">{day}</span>
-                {record && (
-                  <span className="text-[8px] font-bold mt-0.5">{record.weight}</span>
-                )}
+              <div key={i} className={`aspect-square rounded-lg flex flex-col items-center justify-center text-[10px] ${
+                record ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/25' : 'text-white/25'}`}>
+                <span>{day}</span>
+                {record && <span className="text-[7px] font-bold mt-0.5">{record.weight}</span>}
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* 体重推移グラフ */}
+      {/* 棒グラフ */}
       {chartData.length > 1 && (
         <div className="glass-card">
-          <h3 className="text-sm font-semibold text-white/70 mb-4">体重推移</h3>
-          <div className="h-40">
+          <h3 className="text-xs font-semibold text-white/70 mb-3">体重推移</h3>
+          <div className="h-36">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <XAxis dataKey="day" axisLine={false} tickLine={false} />
-                <YAxis domain={['dataMin - 1', 'dataMax + 1']} hide />
-                <Tooltip
-                  contentStyle={{
-                    background: 'rgba(15,21,39,0.95)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '0.75rem',
-                    fontSize: '0.75rem',
-                  }}
-                  formatter={(value) => [`${value} kg`, '体重']}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="weight"
-                  stroke="url(#wGrad)"
-                  strokeWidth={2.5}
-                  dot={{ r: 3, fill: '#10b981', stroke: '#0a0f1e', strokeWidth: 2 }}
-                />
+              <BarChart data={chartData}>
+                <XAxis dataKey="day" axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                <YAxis domain={['dataMin - 2', 'dataMax + 2']} hide />
+                <Tooltip contentStyle={{ background: 'rgba(15,21,39,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', fontSize: '0.7rem' }}
+                  formatter={(value) => [`${value} kg`, '体重']} />
+                <Bar dataKey="weight" radius={[4, 4, 0, 0]} fill="url(#wBarGrad)" />
                 <defs>
-                  <linearGradient id="wGrad" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#10b981" />
-                    <stop offset="100%" stopColor="#3b82f6" />
+                  <linearGradient id="wBarGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10b981" /><stop offset="100%" stopColor="#3b82f6" />
                   </linearGradient>
                 </defs>
-              </LineChart>
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
       )}
 
-      {/* 記録リスト */}
-      <div className="space-y-2">
-        <h3 className="text-sm font-semibold text-white/50">記録一覧</h3>
+      {/* 記録一覧 */}
+      <div className="space-y-1.5">
+        <h3 className="text-xs font-semibold text-white/50">記録一覧</h3>
         {records.length === 0 ? (
-          <p className="text-center text-white/20 text-sm py-8">まだ記録がありません</p>
+          <p className="text-center text-white/20 text-xs py-6">まだ記録がありません</p>
         ) : (
-          records
-            .sort((a, b) => b.date.localeCompare(a.date))
-            .map((r) => (
-              <div
-                key={r.id}
-                className="glass-card flex items-center justify-between !p-3"
-              >
-                <div className="flex items-center gap-3">
-                  {r.photo ? (
-                    <button
-                      onClick={() => setViewingPhoto(r.photo!)}
-                      className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0"
-                    >
-                      <img src={r.photo} alt="" className="w-full h-full object-cover" />
-                    </button>
-                  ) : (
-                    <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
-                      <ImageIcon size={16} className="text-white/20" />
-                    </div>
-                  )}
-                  <div>
-                    <div className="text-sm font-semibold">{r.weight} kg</div>
-                    <div className="text-[10px] text-white/40">{r.date}</div>
+          [...records].reverse().slice(0, 20).map(r => (
+            <div key={r.id} className="glass-card flex items-center justify-between !py-2.5 !px-3">
+              <div className="flex items-center gap-2.5">
+                {r.photo ? (
+                  <button onClick={() => setViewingPhoto(r.photo!)} className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0">
+                    <img src={r.photo} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ) : (
+                  <div className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
+                    <Scale size={14} className="text-white/20" />
                   </div>
+                )}
+                <div>
+                  <div className="text-sm font-semibold">{r.weight} kg</div>
+                  <div className="text-[10px] text-white/40">{r.date}</div>
                 </div>
-                <button
-                  onClick={() => handleDelete(r.id)}
-                  className="p-2 rounded-lg hover:bg-red-500/20 text-white/30 hover:text-red-400 transition-all"
-                >
-                  <Trash2 size={14} />
-                </button>
               </div>
-            ))
+              <button onClick={() => handleDelete(r.id)} className="p-2 rounded-lg active:bg-red-500/20 text-white/25 active:text-red-400 transition-all">
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))
         )}
       </div>
 
       {/* 写真プレビュー */}
       {viewingPhoto && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
-          onClick={() => setViewingPhoto(null)}
-        >
+        <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4" onClick={() => setViewingPhoto(null)}>
           <img src={viewingPhoto} alt="" className="max-w-full max-h-full rounded-xl" />
         </div>
       )}

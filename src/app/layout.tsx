@@ -1,10 +1,19 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { Navigation } from "@/components/layout/Navigation";
+import { AuthProvider } from "@/components/auth/AuthProvider";
+import { AppShell } from "@/components/layout/AppShell";
 
 export const metadata: Metadata = {
-  title: "ヘルスケア・ビジュアル・トラッカー",
+  title: "ヘルスケア・トラッカー",
   description: "写真ベースの体重管理、AI食事解析、PFC計算、運動記録を一元管理するヘルスケアアプリ",
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({
@@ -19,14 +28,13 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
           rel="stylesheet"
         />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
       <body className="antialiased">
-        <div className="min-h-screen flex flex-col">
-          <main className="flex-1 pb-24 pt-4 px-4 max-w-2xl mx-auto w-full">
-            {children}
-          </main>
-          <Navigation />
-        </div>
+        <AuthProvider>
+          <AppShell>{children}</AppShell>
+        </AuthProvider>
       </body>
     </html>
   );

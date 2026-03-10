@@ -16,27 +16,24 @@ export function Navigation() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-white/10">
-      <div className="max-w-2xl mx-auto flex items-center justify-around py-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-white/10 pb-safe">
+      <div className="max-w-lg mx-auto flex items-center justify-around py-1.5">
         {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
           const isActive = pathname === href;
           return (
             <Link
               key={href}
               href={href}
-              className={`flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all duration-300 ${
+              className={`flex flex-col items-center gap-0.5 min-w-[56px] min-h-[48px] justify-center rounded-xl transition-all duration-300 active:scale-95 ${
                 isActive
-                  ? 'text-emerald-400 scale-105'
+                  ? 'text-emerald-400'
                   : 'text-white/40 hover:text-white/70'
               }`}
             >
               <Icon size={22} strokeWidth={isActive ? 2.5 : 1.8} />
-              <span className={`text-[10px] font-medium ${isActive ? 'font-semibold' : ''}`}>
+              <span className={`text-[10px] ${isActive ? 'font-bold' : 'font-medium'}`}>
                 {label}
               </span>
-              {isActive && (
-                <div className="absolute -bottom-0 w-8 h-0.5 rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400" />
-              )}
             </Link>
           );
         })}
