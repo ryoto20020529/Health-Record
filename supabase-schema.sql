@@ -75,3 +75,21 @@ create policy "Users can manage own meal records" on meal_records
 
 create policy "Users can manage own exercise records" on exercise_records
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- goal_plans テーブル
+create table if not exists goal_plans (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users not null,
+  target_weight real not null,
+  target_date date not null,
+  daily_calorie_deficit real,
+  daily_calorie_target real,
+  recommended_exercise_min int,
+  is_active boolean default true,
+  created_at timestamptz default now()
+);
+
+alter table goal_plans enable row level security;
+
+create policy "Users can manage own goals" on goal_plans
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);

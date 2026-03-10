@@ -252,6 +252,60 @@ export async function deleteExerciseRecordDB(id: string): Promise<void> {
   if (error) throw error;
 }
 
+// ---- Goal Plan ----
+export async function getActiveGoalDB(): Promise<import('./types').GoalPlan | null> {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  const { data } = await db()
+    .from('goal_plans')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('is_active', true)
+    .single();
+  if (!data) return null;
+  return {
+    id: data.id,
+    targetWeight: data.target_weight,
+    targetDate: data.target_date,
+    dailyCalorieDeficit: data.daily_calorie_deficit,
+    dailyCalorieTarget: data.daily_calorie_target,
+    recommendedExerciseMin: data.recommended_exercise_min,
+    createdAt: data.created_at,
+    isActive: data.is_active,
+  };
+}
+
+export async function saveGoalDB(goal: import('./types').GoalPlan): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) throw new Error('Not authenticated');
+  // 既存のアクティブゴールを非アクティブに
+  await db()
+    .from('goal_plans')
+    .update({ is_active: false })
+    .eq('user_id', user.id)
+    .eq('is_active', true);
+  // 新しいゴールを保存
+  const { error } = await db()
+    .from('goal_plans')
+    .insert({
+      id: goal.id,
+      user_id: user.id,
+      target_weight: goal.targetWeight,
+      target_date: goal.targetDate,
+      daily_calorie_deficit: goal.dailyCalorieDeficit,
+      daily_calorie_target: goal.dailyCalorieTarget,
+      recommended_exercise_min: goal.recommendedExerciseMin,
+      is_active: true,
+      created_at: goal.createdAt,
+    });
+  if (error) throw error;
+}
+
+export async function deleteGoalDB(id: string): Promise<void> {
+  const { error } = await db().from('goal_plans').delete().eq('id', id);
+  if (error) throw error;
+}
+
 // ---- ユーティリティ ----
 export function generateId(): string {
   return crypto.randomUUID();
@@ -260,3 +314,4 @@ export function generateId(): string {
 export function getTodayString(): string {
   return new Date().toISOString().split('T')[0];
 }
+

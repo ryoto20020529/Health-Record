@@ -75,3 +75,15 @@ export interface DailySummary {
   carbs: number;
   weight?: number;
 }
+
+// 目標計画
+export interface GoalPlan {
+  id: string;
+  targetWeight: number; // 目標体重 kg
+  targetDate: string; // 目標日 YYYY-MM-DD
+  dailyCalorieDeficit: number; // 1日あたりの目標カロリー制限
+  dailyCalorieTarget: number; // 1日の摂取目標カロリー
+  recommendedExerciseMin: number; // 推奨運動時間(分)
+  createdAt: string;
+  isActive: boolean;
+}
