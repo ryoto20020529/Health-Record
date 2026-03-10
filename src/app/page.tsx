@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Flame, TrendingDown, Calendar, Settings } from 'lucide-react';
+import { Flame, TrendingDown, Calendar, Settings, Scale, Plus } from 'lucide-react';
 import { ActivityRing, RingLegend } from '@/components/ActivityRing';
 import {
   getUserSettingsDB,
@@ -84,9 +84,14 @@ export default function DashboardPage() {
             {streak > 0 && <span className="text-orange-400">🔥 {streak}日連続記録中</span>}
           </p>
         </div>
-        <a href="/settings" className="p-2 rounded-xl hover:bg-white/10 text-white/40 transition-all active:scale-95">
-          <Settings size={18} />
-        </a>
+        <div className="flex items-center gap-1">
+          <a href="/weight" className="p-2 rounded-xl hover:bg-white/10 text-white/40 transition-all active:scale-95" title="体重記録">
+            <Scale size={18} />
+          </a>
+          <a href="/settings" className="p-2 rounded-xl hover:bg-white/10 text-white/40 transition-all active:scale-95" title="設定">
+            <Settings size={18} />
+          </a>
+        </div>
       </div>
 
       {/* 設定未完了 */}
@@ -139,30 +144,40 @@ export default function DashboardPage() {
 
       {/* 体重トレンド */}
       {weightData.length > 0 && (
-        <div className="glass-card">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-semibold text-white/70">体重推移</h3>
-            <span className={`text-xs font-bold ${weightChange < 0 ? 'text-emerald-400' : weightChange > 0 ? 'text-red-400' : 'text-white/40'}`}>
-              {weightChange > 0 ? '+' : ''}{weightChange}kg
-            </span>
-          </div>
-          <div className="flex items-end gap-1.5 h-20">
-            {weightData.map((d, i) => {
-              const min = Math.min(...weightData.map(w => w.weight));
-              const max = Math.max(...weightData.map(w => w.weight));
-              const range = max - min || 1;
-              const height = ((d.weight - min) / range) * 60 + 12;
-              const isLatest = i === weightData.length - 1;
-              return (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                  <div className="text-[8px] text-white/30">{isLatest ? d.weight : ''}</div>
-                  <div className={`w-full rounded-t-md transition-all duration-500 ${isLatest ? 'bg-gradient-to-t from-emerald-500 to-cyan-500' : 'bg-white/10'}`}
-                    style={{ height: `${height}px` }} />
-                  <div className="text-[7px] text-white/25">{d.date}</div>
+        <div className="glass-card overflow-hidden">
+          <a href="/weight" className="block p-0">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-semibold text-white/70 flex items-center gap-2">
+                <Scale size={14} className="text-emerald-400" />
+                体重推移
+              </h3>
+              <div className="flex items-center gap-3">
+                <span className={`text-xs font-bold ${weightChange < 0 ? 'text-emerald-400' : weightChange > 0 ? 'text-red-400' : 'text-white/40'}`}>
+                  {weightChange > 0 ? '+' : ''}{weightChange}kg
+                </span>
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400">
+                  <Plus size={14} />
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            </div>
+            <div className="flex items-end gap-1.5 h-20 px-1">
+              {weightData.map((d, i) => {
+                const min = Math.min(...weightData.map(w => w.weight));
+                const max = Math.max(...weightData.map(w => w.weight));
+                const range = max - min || 1;
+                const height = ((d.weight - min) / range) * 60 + 12;
+                const isLatest = i === weightData.length - 1;
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                    <div className="text-[8px] text-white/30">{isLatest ? d.weight : ''}</div>
+                    <div className={`w-full rounded-t-md transition-all duration-500 ${isLatest ? 'bg-gradient-to-t from-emerald-500 to-cyan-500' : 'bg-white/10'}`}
+                      style={{ height: `${height}px` }} />
+                    <div className="text-[7px] text-white/25">{d.date}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </a>
         </div>
       )}
 
