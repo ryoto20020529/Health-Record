@@ -1,18 +1,20 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Dumbbell, Plus, Trash2, Clock, Flame, Search, X } from 'lucide-react';
+import { Dumbbell, Plus, Trash2, Clock, Flame, Search, X, Target } from 'lucide-react';
 import {
   getExerciseRecordsByDateDB,
   saveExerciseRecordDB,
   deleteExerciseRecordDB,
   getUserSettingsDB,
+  getActiveGoalDB,
+  getMealRecordsByDateDB,
   generateId,
   getTodayString,
 } from '@/lib/database';
 import { calculateExerciseCalories } from '@/lib/calculations';
 import { EXERCISE_PRESETS } from '@/lib/constants';
-import type { ExerciseRecord } from '@/lib/types';
+import type { ExerciseRecord, GoalPlan } from '@/lib/types';
 
 export default function ExercisePage() {
   const [records, setRecords] = useState<ExerciseRecord[]>([]);
@@ -25,15 +27,21 @@ export default function ExercisePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [userWeight, setUserWeight] = useState(65);
   const [mounted, setMounted] = useState(false);
+  const [goal, setGoal] = useState<GoalPlan | null>(null);
+  const [todayCalIn, setTodayCalIn] = useState(0);
 
   const loadData = useCallback(async (date: string) => {
     try {
-      const [recs, settings] = await Promise.all([
+      const [recs, settings, g, meals] = await Promise.all([
         getExerciseRecordsByDateDB(date),
         getUserSettingsDB(),
+        getActiveGoalDB(),
+        getMealRecordsByDateDB(date),
       ]);
       setRecords(recs);
       if (settings) setUserWeight(settings.weight);
+      setGoal(g);
+      setTodayCalIn(meals.reduce((sum, m) => sum + m.calories, 0));
     } catch (err) {
       console.error('Exercise load error:', err);
     }
@@ -135,6 +143,27 @@ export default function ExercisePage() {
             <div className="text-base font-bold text-cyan-400 flex items-center gap-0.5"><Clock size={12} />{totalDuration}分</div>
           </div>
         </div>
+
+      {/* 目標ベースの残りカロリー */}
+      {goal && (
+        <div className="glass-card !py-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-white/60 flex items-center gap-1.5"><Target size={12} className="text-emerald-400" />目標まで</span>
+            {(() => {
+              const remaining = Math.max(todayCalIn - goal.dailyCalorieTarget - totalCalBurned, 0);
+              return remaining > 0 ? (
+                <span className="text-sm font-bold text-orange-400">あと{remaining}kcal消費しよう</span>
+              ) : (
+                <span className="text-sm font-bold text-emerald-400">✅ 目標達成！</span>
+              );
+            })()}
+          </div>
+          <div className="mt-1.5 w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+            <div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-emerald-500 transition-all duration-500"
+              style={{ width: `${Math.min((totalCalBurned / Math.max(todayCalIn - goal.dailyCalorieTarget, 1)) * 100, 100)}%` }} />
+          </div>
+        </div>
+      )}
       </div>
 
       {/* 入力フォーム */}

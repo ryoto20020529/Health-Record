@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Target, Flame, UtensilsCrossed, Dumbbell, TrendingDown,
+  Target, Flame, UtensilsCrossed, Dumbbell,
   CheckCircle, AlertTriangle, Award, ArrowRight, X, Settings,
 } from 'lucide-react';
 import {
@@ -12,11 +12,12 @@ import {
   getUserSettingsDB,
   getMealRecordsByDateDB,
   getExerciseRecordsByDateDB,
+  getExerciseRecordsDB,
   getWeightRecordsDB,
   generateId,
   getTodayString,
 } from '@/lib/database';
-import type { GoalPlan, UserSettings } from '@/lib/types';
+import type { GoalPlan, UserSettings, ExerciseRecord } from '@/lib/types';
 
 // おすすめ食事プラン
 function getMealSuggestions(dailyCal: number) {
@@ -28,25 +29,35 @@ function getMealSuggestions(dailyCal: number) {
   ];
 }
 
-// おすすめ運動プラン
-function getExerciseSuggestions(minPerDay: number) {
-  if (minPerDay <= 15) {
+// ユーザーの運動履歴からおすすめを生成
+function getExerciseSuggestionsFromHistory(
+  history: ExerciseRecord[],
+  targetMin: number
+): { name: string; duration: number; avgCal: number }[] {
+  // 運動ごとに頻度・平均時間・平均カロリーを集計
+  const stats = new Map<string, { count: number; totalDur: number; totalCal: number }>();
+  history.forEach(r => {
+    const s = stats.get(r.name) || { count: 0, totalDur: 0, totalCal: 0 };
+    s.count++; s.totalDur += r.duration; s.totalCal += r.caloriesBurned;
+    stats.set(r.name, s);
+  });
+  // 頻度順にソート
+  const sorted = [...stats.entries()]
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 4);
+
+  if (sorted.length === 0) {
     return [
-      { name: 'ウォーキング', duration: minPerDay, emoji: '🚶' },
-      { name: 'ストレッチ', duration: 10, emoji: '🤸' },
+      { name: 'ウォーキング', duration: targetMin, avgCal: Math.round(targetMin * 4) },
+      { name: 'ストレッチ', duration: 10, avgCal: 20 },
     ];
   }
-  if (minPerDay <= 30) {
-    return [
-      { name: 'ジョギング', duration: Math.round(minPerDay * 0.6), emoji: '🏃' },
-      { name: '筋トレ', duration: Math.round(minPerDay * 0.4), emoji: '🏋️' },
-    ];
-  }
-  return [
-    { name: 'ランニング', duration: Math.round(minPerDay * 0.4), emoji: '💨' },
-    { name: '筋トレ', duration: Math.round(minPerDay * 0.3), emoji: '🏋️' },
-    { name: 'HIIT/水泳', duration: Math.round(minPerDay * 0.3), emoji: '🔥' },
-  ];
+
+  return sorted.map(([name, s]) => ({
+    name,
+    duration: Math.round(s.totalDur / s.count),
+    avgCal: Math.round(s.totalCal / s.count),
+  }));
 }
 
 export default function GoalPage() {
@@ -62,6 +73,7 @@ export default function GoalPage() {
   const [todayCalOut, setTodayCalOut] = useState(0);
   const [todayExMin, setTodayExMin] = useState(0);
   const [latestWeight, setLatestWeight] = useState<number | null>(null);
+  const [exerciseHistory, setExerciseHistory] = useState<ExerciseRecord[]>([]);
 
   const loadData = useCallback(async () => {
     try {
@@ -70,15 +82,17 @@ export default function GoalPage() {
       setSettings(s);
 
       const today = getTodayString();
-      const [meals, exercises, weights] = await Promise.all([
+      const [meals, exercises, weights, allExercises] = await Promise.all([
         getMealRecordsByDateDB(today),
         getExerciseRecordsByDateDB(today),
         getWeightRecordsDB(),
+        getExerciseRecordsDB(),
       ]);
 
       setTodayCalIn(meals.reduce((sum, m) => sum + m.calories, 0));
       setTodayCalOut(exercises.reduce((sum, e) => sum + e.caloriesBurned, 0));
       setTodayExMin(exercises.reduce((sum, e) => sum + e.duration, 0));
+      setExerciseHistory(allExercises);
 
       if (weights.length > 0) {
         setLatestWeight(weights[weights.length - 1].weight);
@@ -146,6 +160,7 @@ export default function GoalPage() {
   // 今日のフィードback
   const netCalories = todayCalIn - todayCalOut;
   const calorieBudget = goal ? goal.dailyCalorieTarget : 0;
+  const remainingExCal = Math.max(calorieBudget > 0 ? todayCalIn - calorieBudget : 0, 0); // 運動で減らすべき残りkcal
   const calorieStatus = netCalories <= calorieBudget ? 'good' : netCalories <= calorieBudget * 1.1 ? 'warning' : 'over';
   const exerciseStatus = goal && todayExMin >= goal.recommendedExerciseMin ? 'good' : todayExMin > 0 ? 'partial' : 'none';
 
@@ -288,11 +303,18 @@ export default function GoalPage() {
               <div className="flex items-center justify-between">
                 <span className="text-xs text-white/60 flex items-center gap-1"><Dumbbell size={12} />運動</span>
                 <span className={`text-sm font-bold ${exerciseStatus === 'good' ? 'text-emerald-400' : 'text-cyan-400'}`}>
-                  {todayExMin} / {goal.recommendedExerciseMin} 分
+                  {todayCalOut} kcal消費済み
                 </span>
+              </div>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-[10px] text-white/40">時間: {todayExMin}分</span>
+                {remainingExCal > 0 && (
+                  <span className="text-[10px] text-orange-400 font-semibold">あと{remainingExCal}kcal運動で消費</span>
+                )}
               </div>
               <p className="text-[10px] text-white/40 mt-1.5">
                 {exerciseStatus === 'good' ? '✅ 運動目標達成！お疲れ様です' :
+                 remainingExCal > 0 ? `🔥 食事が${remainingExCal}kcalオーバー、運動で取り戻そう！` :
                  exerciseStatus === 'partial' ? `💪 あと${goal.recommendedExerciseMin - todayExMin}分で目標達成！` :
                  '🏃 今日の運動はまだです。少し体を動かしましょう'}
               </p>
@@ -320,24 +342,24 @@ export default function GoalPage() {
             </div>
           </div>
 
-          {/* 運動の提案 */}
+          {/* 運動の提案（ユーザーの運動履歴ベース） */}
           <div className="glass-card">
             <h3 className="text-xs font-semibold text-white/70 flex items-center gap-1.5 mb-3">
-              <Dumbbell size={14} className="text-cyan-400" />おすすめ運動プラン
+              <Dumbbell size={14} className="text-cyan-400" />あなたの運動メニュー
             </h3>
             <div className="space-y-1.5">
-              {getExerciseSuggestions(goal.recommendedExerciseMin).map((s, i) => (
+              {getExerciseSuggestionsFromHistory(exerciseHistory, goal.recommendedExerciseMin).map((s, i) => (
                 <div key={i} className="flex items-center justify-between bg-white/5 rounded-xl px-3 py-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">{s.emoji}</span>
-                    <span className="text-xs font-semibold">{s.name}</span>
+                  <div>
+                    <div className="text-xs font-semibold">{s.name}</div>
+                    <div className="text-[9px] text-white/40">平均{s.duration}分</div>
                   </div>
-                  <div className="text-xs font-bold text-cyan-400">{s.duration}分</div>
+                  <div className="text-xs font-bold text-cyan-400">約{s.avgCal}kcal</div>
                 </div>
               ))}
             </div>
             <div className="mt-2 text-center text-[9px] text-white/30">
-              1日の目標: {goal.recommendedExerciseMin}分 以上
+              {exerciseHistory.length > 0 ? '過去の記録から提案しています' : 'まず運動を記録してメニューを作りましょう'}
             </div>
           </div>
 
