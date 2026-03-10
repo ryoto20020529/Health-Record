@@ -1,14 +1,17 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Flame, TrendingDown, Calendar, Settings, Scale, Plus } from 'lucide-react';
+import { Flame, TrendingDown, Calendar, Settings, Scale, Plus, Camera, Trash2, X } from 'lucide-react';
+import { useRef } from 'react';
 import { ActivityRing, RingLegend } from '@/components/ActivityRing';
 import {
   getUserSettingsDB,
   getMealRecordsByDateDB,
   getExerciseRecordsByDateDB,
   getWeightRecordsDB,
+  saveWeightRecordDB,
   getActiveGoalDB,
+  generateId,
   getTodayString,
 } from '@/lib/database';
 import type { UserSettings, GoalPlan } from '@/lib/types';
@@ -23,6 +26,35 @@ export default function DashboardPage() {
   const [weightData, setWeightData] = useState<{ date: string; weight: number }[]>([]);
   const [streak, setStreak] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const [showWeightModal, setShowWeightModal] = useState(false);
+  const [newWeight, setNewWeight] = useState('');
+  const [newPhoto, setNewPhoto] = useState<string | undefined>();
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setNewPhoto(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveWeight = async () => {
+    const w = parseFloat(newWeight);
+    if (!w) return;
+    const record = {
+      id: generateId(),
+      date: getTodayString(),
+      weight: w,
+      photo: newPhoto,
+      createdAt: new Date().toISOString(),
+    };
+    await saveWeightRecordDB(record);
+    await loadData();
+    setShowWeightModal(false);
+    setNewWeight('');
+    setNewPhoto(undefined);
+  };
 
   const loadData = useCallback(async () => {
     try {
@@ -143,24 +175,33 @@ export default function DashboardPage() {
       )}
 
       {/* 体重トレンド */}
-      {weightData.length > 0 && (
-        <div className="glass-card overflow-hidden">
-          <a href="/weight" className="block p-0">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-semibold text-white/70 flex items-center gap-2">
-                <Scale size={14} className="text-emerald-400" />
-                体重推移
-              </h3>
-              <div className="flex items-center gap-3">
+      <div className="glass-card overflow-hidden relative">
+        <div className="flex items-center justify-between mb-3 px-1">
+          <a href="/weight" className="flex-1">
+            <h3 className="text-xs font-semibold text-white/70 flex items-center gap-2">
+              <Scale size={14} className="text-emerald-400" />
+              体重推移
+            </h3>
+          </a>
+          <div className="flex items-center gap-3">
+            {weightData.length >= 2 && (
+              <a href="/weight">
                 <span className={`text-xs font-bold ${weightChange < 0 ? 'text-emerald-400' : weightChange > 0 ? 'text-red-400' : 'text-white/40'}`}>
                   {weightChange > 0 ? '+' : ''}{weightChange}kg
                 </span>
-                <div className="w-7 h-7 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400">
-                  <Plus size={14} />
-                </div>
-              </div>
-            </div>
-            <div className="flex items-end gap-1.5 h-20 px-1">
+              </a>
+            )}
+            <button 
+              onClick={() => setShowWeightModal(true)}
+              className="w-7 h-7 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400 active:scale-95 transition-all">
+              <Plus size={14} />
+            </button>
+          </div>
+        </div>
+        
+        {weightData.length > 0 ? (
+          <a href="/weight" className="block px-1">
+            <div className="flex items-end gap-1.5 h-20">
               {weightData.map((d, i) => {
                 const min = Math.min(...weightData.map(w => w.weight));
                 const max = Math.max(...weightData.map(w => w.weight));
@@ -178,8 +219,12 @@ export default function DashboardPage() {
               })}
             </div>
           </a>
-        </div>
-      )}
+        ) : (
+          <div className="h-20 flex items-center justify-center text-white/30 text-xs">
+            まだ記録がありません
+          </div>
+        )}
+      </div>
 
       {/* 目標情報 */}
       {goal && (
@@ -193,6 +238,49 @@ export default function DashboardPage() {
             </div>
           </div>
         </a>
+      )}
+      {/* Quick Weight Modal */}
+      {showWeightModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 pb-8 fade-in">
+          <div className="bg-[#0f1527] border border-white/10 w-full max-w-sm rounded-3xl p-5 slide-up relative">
+            <button onClick={() => setShowWeightModal(false)} className="absolute top-4 right-4 p-2 rounded-full active:bg-white/10 text-white/50">
+              <X size={18} />
+            </button>
+            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <Scale size={20} className="text-emerald-400" />
+              今日の体重を記録
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-white/50 mb-1 block">体重 (kg)</label>
+                <input type="number" step="0.1" value={newWeight} onChange={e => setNewWeight(e.target.value)} placeholder="65.0" className="input-field text-lg" />
+              </div>
+
+              <div>
+                <input type="file" accept="image/*" capture="environment" ref={fileRef} onChange={handlePhotoUpload} className="hidden" />
+                {newPhoto ? (
+                  <div className="relative rounded-xl overflow-hidden">
+                    <img src={newPhoto} alt="体重計" className="w-full h-32 object-cover" />
+                    <button onClick={() => setNewPhoto(undefined)} className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center">
+                      <Trash2 size={14} className="text-white" />
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={() => fileRef.current?.click()}
+                    className="w-full py-4 border-2 border-dashed border-white/15 rounded-xl flex items-center justify-center gap-2 text-white/40 active:bg-white/5 transition-all">
+                    <Camera size={18} />
+                    <span className="text-sm">写真を追加（任意）</span>
+                  </button>
+                )}
+              </div>
+
+              <button onClick={handleSaveWeight} disabled={!newWeight} className="w-full btn-primary disabled:opacity-30 mt-2">
+                記録する
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
