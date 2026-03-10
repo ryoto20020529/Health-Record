@@ -10,7 +10,7 @@ import {
   generateId,
   getTodayString,
 } from '@/lib/database';
-import { MEAL_TYPE_LABELS } from '@/lib/constants';
+import { MEAL_TYPE_LABELS, autoDetectMealType } from '@/lib/constants';
 import type { MealRecord, UserSettings } from '@/lib/types';
 
 export default function MealsPage() {
@@ -19,7 +19,7 @@ export default function MealsPage() {
   const [showForm, setShowForm] = useState(false);
   const [showManual, setShowManual] = useState(false);
   const [selectedDate, setSelectedDate] = useState('');
-  const [mealType, setMealType] = useState<MealRecord['mealType']>('lunch');
+  const [mealType, setMealType] = useState<MealRecord['mealType']>(autoDetectMealType());
   const [name, setName] = useState('');
   const [calories, setCalories] = useState('');
   const [protein, setProtein] = useState('');

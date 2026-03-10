@@ -1,21 +1,12 @@
 import { ExercisePreset } from './types';
 
+// 手軽にできる運動5種に厳選
 export const EXERCISE_PRESETS: ExercisePreset[] = [
   { name: 'walking', nameJa: 'ウォーキング', mets: 3.5, icon: 'footprints' },
   { name: 'jogging', nameJa: 'ジョギング', mets: 7.0, icon: 'run' },
-  { name: 'running', nameJa: 'ランニング', mets: 9.8, icon: 'zap' },
-  { name: 'cycling', nameJa: 'サイクリング', mets: 6.8, icon: 'bike' },
-  { name: 'swimming', nameJa: '水泳', mets: 8.0, icon: 'waves' },
-  { name: 'weight_training', nameJa: '筋トレ（軽〜中）', mets: 3.5, icon: 'dumbbell' },
-  { name: 'weight_training_heavy', nameJa: '筋トレ（高強度）', mets: 6.0, icon: 'dumbbell' },
-  { name: 'yoga', nameJa: 'ヨガ', mets: 2.5, icon: 'heart' },
+  { name: 'weight_training', nameJa: '筋トレ', mets: 5.0, icon: 'dumbbell' },
   { name: 'stretching', nameJa: 'ストレッチ', mets: 2.3, icon: 'move' },
-  { name: 'hiit', nameJa: 'HIIT', mets: 12.0, icon: 'flame' },
-  { name: 'dance', nameJa: 'ダンス', mets: 5.5, icon: 'music' },
-  { name: 'tennis', nameJa: 'テニス', mets: 7.3, icon: 'circle' },
-  { name: 'basketball', nameJa: 'バスケットボール', mets: 6.5, icon: 'circle' },
-  { name: 'soccer', nameJa: 'サッカー', mets: 7.0, icon: 'circle' },
-  { name: 'stairs', nameJa: '階段昇降', mets: 8.8, icon: 'trending-up' },
+  { name: 'cycling', nameJa: 'サイクリング', mets: 6.8, icon: 'bike' },
 ];
 
 export const ACTIVITY_LEVEL_LABELS: Record<string, string> = {
@@ -32,3 +23,12 @@ export const MEAL_TYPE_LABELS: Record<string, string> = {
   dinner: '夕食',
   snack: '間食',
 };
+
+// 時間帯から自動で食事タイプを判別
+export function autoDetectMealType(): 'breakfast' | 'lunch' | 'dinner' | 'snack' {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 10) return 'breakfast';
+  if (hour >= 10 && hour < 15) return 'lunch';
+  if (hour >= 15 && hour < 21) return 'dinner';
+  return 'snack';
+}

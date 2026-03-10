@@ -1,47 +1,34 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import {
-  Activity,
-  TrendingUp,
-  Flame,
-  Target,
-  ArrowDown,
-} from 'lucide-react';
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-} from 'recharts';
+import { Flame, TrendingDown, Calendar, Settings } from 'lucide-react';
+import { ActivityRing, RingLegend } from '@/components/ActivityRing';
 import {
   getUserSettingsDB,
   getMealRecordsByDateDB,
   getExerciseRecordsByDateDB,
   getWeightRecordsDB,
+  getActiveGoalDB,
   getTodayString,
 } from '@/lib/database';
-import type { UserSettings } from '@/lib/types';
+import type { UserSettings, GoalPlan } from '@/lib/types';
 
 export default function DashboardPage() {
   const [settings, setSettings] = useState<UserSettings | null>(null);
-  const [totalCalIn, setTotalCalIn] = useState(0);
-  const [totalCalOut, setTotalCalOut] = useState(0);
-  const [protein, setProtein] = useState(0);
-  const [fat, setFat] = useState(0);
-  const [carbs, setCarbs] = useState(0);
-  const [weeklyWeights, setWeeklyWeights] = useState<{ day: string; weight: number }[]>([]);
+  const [goal, setGoal] = useState<GoalPlan | null>(null);
+  const [todayCalIn, setTodayCalIn] = useState(0);
+  const [todayCalOut, setTodayCalOut] = useState(0);
+  const [todayExMin, setTodayExMin] = useState(0);
+  const [mealCount, setMealCount] = useState(0);
+  const [weightData, setWeightData] = useState<{ date: string; weight: number }[]>([]);
+  const [streak, setStreak] = useState(0);
   const [mounted, setMounted] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
-      const s = await getUserSettingsDB();
+      const [s, g] = await Promise.all([getUserSettingsDB(), getActiveGoalDB()]);
       setSettings(s);
+      setGoal(g);
 
       const today = getTodayString();
       const [meals, exercises, weights] = await Promise.all([
@@ -50,24 +37,25 @@ export default function DashboardPage() {
         getWeightRecordsDB(),
       ]);
 
-      setTotalCalIn(meals.reduce((sum, m) => sum + m.calories, 0));
-      setTotalCalOut(exercises.reduce((sum, e) => sum + e.caloriesBurned, 0));
-      setProtein(meals.reduce((sum, m) => sum + m.protein, 0));
-      setFat(meals.reduce((sum, m) => sum + m.fat, 0));
-      setCarbs(meals.reduce((sum, m) => sum + m.carbs, 0));
+      setTodayCalIn(meals.reduce((sum, m) => sum + m.calories, 0));
+      setTodayCalOut(exercises.reduce((sum, e) => sum + e.caloriesBurned, 0));
+      setTodayExMin(exercises.reduce((sum, e) => sum + e.duration, 0));
+      setMealCount(meals.length);
 
-      // 直近7日間の体重
-      const last7: { day: string; weight: number }[] = [];
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const dateStr = d.toISOString().split('T')[0];
-        const rec = weights.find(w => w.date === dateStr);
-        if (rec) {
-          last7.push({ day: `${d.getMonth() + 1}/${d.getDate()}`, weight: rec.weight });
-        }
+      // 直近7日の体重
+      const last7 = weights.slice(-7).map(w => ({ date: w.date.slice(5), weight: w.weight }));
+      setWeightData(last7);
+
+      // ストリーク計算（連続記録日数）
+      let s2 = 0;
+      const dateSet = new Set(weights.map(w => w.date));
+      const d = new Date();
+      for (let i = 0; i < 365; i++) {
+        const ds = d.toISOString().split('T')[0];
+        if (dateSet.has(ds)) { s2++; d.setDate(d.getDate() - 1); }
+        else break;
       }
-      setWeeklyWeights(last7);
+      setStreak(s2);
     } catch (err) {
       console.error('Dashboard load error:', err);
     }
@@ -80,185 +68,117 @@ export default function DashboardPage() {
 
   if (!mounted) return null;
 
-  if (!settings) {
-    return (
-      <div className="fade-in flex flex-col items-center justify-center min-h-[70vh] text-center gap-6 px-4">
-        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 flex items-center justify-center">
-          <Activity size={40} className="text-emerald-400" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold gradient-text mb-2">
-            ヘルスケア・トラッカー
-          </h1>
-          <p className="text-white/50 text-sm">まずは基本設定を行いましょう</p>
-        </div>
-        <a href="/settings" className="btn-primary gap-2 px-8">
-          設定を開始する →
-        </a>
-      </div>
-    );
-  }
-
-  const remaining = Math.max(settings.targetCalories - (totalCalIn - totalCalOut), 0);
-  const caloriePercent = Math.min((totalCalIn / settings.targetCalories) * 100, 100);
-
-  const pieData = [
-    { name: '摂取済み', value: totalCalIn },
-    { name: '残り', value: remaining },
-  ];
-  const PIE_COLORS = ['#10b981', 'rgba(255,255,255,0.06)'];
-
-  const pfcData = [
-    { name: 'P', current: protein, target: settings.targetProtein, fill: '#10b981' },
-    { name: 'F', current: fat, target: settings.targetFat, fill: '#06b6d4' },
-    { name: 'C', current: carbs, target: settings.targetCarbs, fill: '#3b82f6' },
-  ];
+  const calorieTarget = goal?.dailyCalorieTarget || settings?.targetCalories || 2000;
+  const exerciseTarget = goal?.recommendedExerciseMin || 30;
+  const netCalories = todayCalIn - todayCalOut;
+  const weightChange = weightData.length >= 2 ? 
+    Math.round((weightData[weightData.length - 1].weight - weightData[0].weight) * 10) / 10 : 0;
 
   return (
     <div className="space-y-5 fade-in">
       {/* ヘッダー */}
-      <div className="pt-3">
-        <h1 className="text-xl font-bold gradient-text">ダッシュボード</h1>
-        <p className="text-white/40 text-xs mt-1">
-          {new Date().toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' })}
-        </p>
+      <div className="flex items-center justify-between pt-3">
+        <div>
+          <h1 className="text-xl font-bold gradient-text">ヘルスケア・トラッカー</h1>
+          <p className="text-white/40 text-xs mt-0.5">
+            {streak > 0 && <span className="text-orange-400">🔥 {streak}日連続記録中</span>}
+          </p>
+        </div>
+        <a href="/settings" className="p-2 rounded-xl hover:bg-white/10 text-white/40 transition-all active:scale-95">
+          <Settings size={18} />
+        </a>
       </div>
 
-      {/* カロリー進捗 */}
-      <div className="glass-card">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xs font-semibold text-white/70 flex items-center gap-1.5">
-            <Target size={14} className="text-emerald-400" />
-            カロリー進捗
-          </h2>
-          <span className="text-[10px] text-white/40">{Math.round(caloriePercent)}%</span>
-        </div>
-        <div className="flex items-center gap-5">
-          <div className="w-28 h-28 relative flex-shrink-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={36}
-                  outerRadius={50}
-                  paddingAngle={3}
-                  dataKey="value"
-                  startAngle={90}
-                  endAngle={-270}
-                  stroke="none"
-                >
-                  {pieData.map((_, i) => (
-                    <Cell key={i} fill={PIE_COLORS[i]} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-base font-bold text-white">{totalCalIn}</span>
-              <span className="text-[9px] text-white/40">kcal</span>
-            </div>
-          </div>
-          <div className="flex-1 space-y-2.5">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-white/50 flex items-center gap-1">
-                <Flame size={12} className="text-orange-400" />
-                摂取
-              </span>
-              <span className="font-semibold text-sm">{totalCalIn} kcal</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-white/50 flex items-center gap-1">
-                <ArrowDown size={12} className="text-cyan-400" />
-                消費
-              </span>
-              <span className="font-semibold text-sm">{totalCalOut} kcal</span>
-            </div>
-            <div className="h-px bg-white/10" />
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-white/50">残り</span>
-              <span className="font-bold text-emerald-400">{remaining} kcal</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* 設定未完了 */}
+      {!settings && (
+        <a href="/settings" className="glass-card text-center py-6 block">
+          <p className="text-sm text-white/60">まず基本情報を設定してください</p>
+          <p className="text-emerald-400 text-xs mt-1 font-semibold">設定へ →</p>
+        </a>
+      )}
 
-      {/* PFCバランス */}
-      <div className="glass-card">
-        <h2 className="text-xs font-semibold text-white/70 flex items-center gap-1.5 mb-3">
-          <TrendingUp size={14} className="text-cyan-400" />
-          PFCバランス
-        </h2>
-        <div className="h-32">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={pfcData} barGap={8}>
-              <XAxis dataKey="name" axisLine={false} tickLine={false} />
-              <YAxis hide />
-              <Tooltip
-                contentStyle={{
-                  background: 'rgba(15,21,39,0.95)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '0.75rem',
-                  fontSize: '0.7rem',
-                }}
-                formatter={(value, name) => [
-                  `${value}g`,
-                  name === 'current' ? '摂取量' : '目標量',
-                ]}
-              />
-              <Bar dataKey="target" fill="rgba(255,255,255,0.06)" radius={[6, 6, 0, 0]} />
-              <Bar dataKey="current" radius={[6, 6, 0, 0]}>
-                {pfcData.map((entry, i) => (
-                  <Cell key={i} fill={entry.fill} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="flex justify-around mt-2 text-[10px] text-white/50">
-          <span><span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1" />P {protein}g/{settings.targetProtein}g</span>
-          <span><span className="inline-block w-1.5 h-1.5 rounded-full bg-cyan-500 mr-1" />F {fat}g/{settings.targetFat}g</span>
-          <span><span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 mr-1" />C {carbs}g/{settings.targetCarbs}g</span>
-        </div>
-      </div>
-
-      {/* 体重推移（棒グラフ） */}
-      <div className="glass-card">
-        <h2 className="text-xs font-semibold text-white/70 flex items-center gap-1.5 mb-3">
-          <TrendingUp size={14} className="text-blue-400" />
-          体重推移（7日間）
-        </h2>
-        {weeklyWeights.length > 0 ? (
-          <div className="h-32">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weeklyWeights}>
-                <XAxis dataKey="day" axisLine={false} tickLine={false} />
-                <YAxis domain={['dataMin - 2', 'dataMax + 2']} hide />
-                <Tooltip
-                  contentStyle={{
-                    background: 'rgba(15,21,39,0.95)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '0.75rem',
-                    fontSize: '0.7rem',
-                  }}
-                  formatter={(value) => [`${value} kg`, '体重']}
-                />
-                <Bar dataKey="weight" radius={[6, 6, 0, 0]} fill="url(#barGrad)">
-                </Bar>
-                <defs>
-                  <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#10b981" />
-                    <stop offset="100%" stopColor="#3b82f6" />
-                  </linearGradient>
-                </defs>
-              </BarChart>
-            </ResponsiveContainer>
+      {/* アクティビティリング */}
+      {settings && (
+        <div className="glass-card flex flex-col items-center py-6">
+          <ActivityRing
+            calories={{ current: netCalories, target: calorieTarget }}
+            exercise={{ current: todayExMin, target: exerciseTarget }}
+            meals={{ count: mealCount, target: 3 }}
+            size={180}
+          />
+          <div className="w-full mt-4 px-2">
+            <RingLegend
+              calories={{ current: netCalories, target: calorieTarget }}
+              exercise={{ current: todayExMin, target: exerciseTarget }}
+              meals={{ count: mealCount, target: 3 }}
+            />
           </div>
-        ) : (
-          <p className="text-center text-white/25 text-xs py-6">体重データがまだありません</p>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* 今日の数値 */}
+      {settings && (
+        <div className="grid grid-cols-3 gap-2">
+          <div className="glass-card !p-3 text-center">
+            <Flame size={14} className="text-orange-400 mx-auto mb-1" />
+            <div className="text-lg font-bold text-orange-400">{todayCalIn}</div>
+            <div className="text-[8px] text-white/30">摂取kcal</div>
+          </div>
+          <div className="glass-card !p-3 text-center">
+            <TrendingDown size={14} className="text-cyan-400 mx-auto mb-1" />
+            <div className="text-lg font-bold text-cyan-400">{todayCalOut}</div>
+            <div className="text-[8px] text-white/30">消費kcal</div>
+          </div>
+          <div className="glass-card !p-3 text-center">
+            <Calendar size={14} className="text-emerald-400 mx-auto mb-1" />
+            <div className="text-lg font-bold text-emerald-400">{netCalories}</div>
+            <div className="text-[8px] text-white/30">ネットkcal</div>
+          </div>
+        </div>
+      )}
+
+      {/* 体重トレンド */}
+      {weightData.length > 0 && (
+        <div className="glass-card">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-semibold text-white/70">体重推移</h3>
+            <span className={`text-xs font-bold ${weightChange < 0 ? 'text-emerald-400' : weightChange > 0 ? 'text-red-400' : 'text-white/40'}`}>
+              {weightChange > 0 ? '+' : ''}{weightChange}kg
+            </span>
+          </div>
+          <div className="flex items-end gap-1.5 h-20">
+            {weightData.map((d, i) => {
+              const min = Math.min(...weightData.map(w => w.weight));
+              const max = Math.max(...weightData.map(w => w.weight));
+              const range = max - min || 1;
+              const height = ((d.weight - min) / range) * 60 + 12;
+              const isLatest = i === weightData.length - 1;
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                  <div className="text-[8px] text-white/30">{isLatest ? d.weight : ''}</div>
+                  <div className={`w-full rounded-t-md transition-all duration-500 ${isLatest ? 'bg-gradient-to-t from-emerald-500 to-cyan-500' : 'bg-white/10'}`}
+                    style={{ height: `${height}px` }} />
+                  <div className="text-[7px] text-white/25">{d.date}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 目標情報 */}
+      {goal && (
+        <a href="/goal" className="glass-card block bg-gradient-to-r from-emerald-500/5 to-cyan-500/5 border-emerald-500/15">
+          <div className="flex items-center justify-between">
+            <div className="text-xs text-white/60">
+              🎯 目標: <span className="font-bold text-emerald-400">{goal.targetWeight}kg</span>
+            </div>
+            <div className="text-[10px] text-white/40">
+              残り{Math.max(Math.ceil((new Date(goal.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)), 0)}日 →
+            </div>
+          </div>
+        </a>
+      )}
     </div>
   );
 }

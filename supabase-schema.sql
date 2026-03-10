@@ -93,3 +93,43 @@ alter table goal_plans enable row level security;
 
 create policy "Users can manage own goals" on goal_plans
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- groups テーブル
+create table if not exists groups (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  invite_code text unique not null,
+  owner_id uuid references auth.users not null,
+  created_at timestamptz default now()
+);
+
+alter table groups enable row level security;
+
+create policy "Anyone can read groups" on groups
+  for select using (true);
+
+create policy "Owner can manage groups" on groups
+  for all using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+
+-- group_members テーブル
+create table if not exists group_members (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid references groups not null,
+  user_id uuid references auth.users not null,
+  is_owner boolean default false,
+  joined_at timestamptz default now(),
+  unique(group_id, user_id)
+);
+
+alter table group_members enable row level security;
+
+create policy "Members can read group members" on group_members
+  for select using (
+    group_id in (select group_id from group_members where user_id = auth.uid())
+  );
+
+create policy "Users can join groups" on group_members
+  for insert with check (auth.uid() = user_id);
+
+create policy "Users can leave groups" on group_members
+  for delete using (auth.uid() = user_id);
