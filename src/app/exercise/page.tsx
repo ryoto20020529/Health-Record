@@ -20,7 +20,7 @@ export default function ExercisePage() {
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [customName, setCustomName] = useState('');
-  const [customMets, setCustomMets] = useState('');
+  const [customIntensity, setCustomIntensity] = useState<'light' | 'moderate' | 'intense'>('moderate');
   const [duration, setDuration] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [userWeight, setUserWeight] = useState(65);
@@ -61,7 +61,7 @@ export default function ExercisePage() {
       if (preset) { exerciseName = preset.nameJa; mets = preset.mets; }
     } else if (customName) {
       exerciseName = customName;
-      mets = parseFloat(customMets) || 5;
+      mets = customIntensity === 'light' ? 3.5 : customIntensity === 'intense' ? 8.0 : 5.0;
     } else return;
 
     const caloriesBurned = calculateExerciseCalories(mets, userWeight, dur);
@@ -80,7 +80,7 @@ export default function ExercisePage() {
   };
 
   const resetForm = () => {
-    setShowForm(false); setSelectedPreset(null); setCustomName(''); setCustomMets(''); setDuration(''); setSearchQuery('');
+    setShowForm(false); setSelectedPreset(null); setCustomName(''); setCustomIntensity('moderate'); setDuration(''); setSearchQuery('');
   };
 
   if (!mounted) return null;
@@ -99,7 +99,8 @@ export default function ExercisePage() {
       const preset = EXERCISE_PRESETS.find(p => p.name === selectedPreset);
       return preset ? calculateExerciseCalories(preset.mets, userWeight, dur) : 0;
     }
-    return customMets ? calculateExerciseCalories(parseFloat(customMets) || 5, userWeight, dur) : 0;
+    const intensityMets = customIntensity === 'light' ? 3.5 : customIntensity === 'intense' ? 8.0 : 5.0;
+    return customName ? calculateExerciseCalories(intensityMets, userWeight, dur) : 0;
   })();
 
   const EMOJI_MAP: Record<string, string> = {
@@ -159,10 +160,18 @@ export default function ExercisePage() {
 
           <div className="border-t border-white/10 pt-3">
             <h4 className="text-[10px] text-white/40 mb-1.5">手動入力</h4>
-            <div className="grid grid-cols-2 gap-2">
-              <input type="text" value={customName} onChange={e => { setCustomName(e.target.value); setSelectedPreset(null); }}
-                placeholder="運動名" className="input-field text-sm" id="input-exercise-custom-name" />
-              <input type="number" value={customMets} onChange={e => setCustomMets(e.target.value)} placeholder="METs (例: 5)" className="input-field text-sm" id="input-exercise-custom-mets" />
+            <input type="text" value={customName} onChange={e => { setCustomName(e.target.value); setSelectedPreset(null); }}
+              placeholder="運動名を入力" className="input-field text-sm mb-2" id="input-exercise-custom-name" />
+            <div className="grid grid-cols-3 gap-1.5">
+              {([['light', '軽い', '🚶'], ['moderate', '普通', '🏃'], ['intense', '激しい', '🔥']] as const).map(([key, label, emoji]) => (
+                <button key={key} onClick={() => setCustomIntensity(key)}
+                  className={`py-2 rounded-lg text-xs font-medium transition-all active:scale-95 ${
+                    customIntensity === key
+                      ? 'bg-gradient-to-r from-emerald-500/30 to-cyan-500/30 text-white border border-emerald-500/40'
+                      : 'bg-white/5 text-white/40 border border-white/8'}`}>
+                  {emoji} {label}
+                </button>
+              ))}
             </div>
           </div>
 
