@@ -32,7 +32,6 @@ function createDummyClient() {
     order: chain, upsert: chain, delete: chain, insert: chain,
     update: chain, ...noop(),
   });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return {
     auth: {
       getUser: async () => ({ data: { user: null }, error: null }),
@@ -42,5 +41,5 @@ function createDummyClient() {
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
     },
     from: () => chain(),
-  } as any;
+  } as unknown as ReturnType<typeof createBrowserClient>;
 }

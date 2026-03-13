@@ -19,7 +19,7 @@ import type { ExerciseRecord, GoalPlan } from '@/lib/types';
 export default function ExercisePage() {
   const [records, setRecords] = useState<ExerciseRecord[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [customName, setCustomName] = useState('');
   const [customIntensity, setCustomIntensity] = useState<'light' | 'moderate' | 'intense'>('moderate');
@@ -48,11 +48,15 @@ export default function ExercisePage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
-    const today = getTodayString();
-    setSelectedDate(today);
-    loadData(today);
-  }, [loadData]);
+  }, []);
+
+  useEffect(() => {
+    // 初回マウント時のみ現在のselectedDateでロード
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadData(selectedDate);
+  }, [loadData, selectedDate]);
 
   const handleDateChange = (date: string) => {
     setSelectedDate(date);

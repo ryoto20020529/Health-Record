@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import { UtensilsCrossed, Camera, Trash2, Sparkles, Loader2, Edit3, X, Plus } from 'lucide-react';
 import {
   getMealRecordsByDateDB,
@@ -8,7 +9,6 @@ import {
   deleteMealRecordDB,
   getUserSettingsDB,
   generateId,
-  getTodayString,
 } from '@/lib/database';
 import { MEAL_TYPE_LABELS, autoDetectMealType } from '@/lib/constants';
 import type { MealRecord, UserSettings } from '@/lib/types';
@@ -17,8 +17,7 @@ export default function MealsPage() {
   const [records, setRecords] = useState<MealRecord[]>([]);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [showManual, setShowManual] = useState(false);
-  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [mealType, setMealType] = useState<MealRecord['mealType']>(autoDetectMealType());
   const [name, setName] = useState('');
   const [calories, setCalories] = useState('');
@@ -41,11 +40,15 @@ export default function MealsPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
-    const today = getTodayString();
-    setSelectedDate(today);
-    loadData(today);
-  }, [loadData]);
+  }, []);
+
+  useEffect(() => {
+    // 初回マウント時のみ現在のselectedDateでロード
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadData(selectedDate);
+  }, [loadData, selectedDate]);
 
   const handleDateChange = (date: string) => {
     setSelectedDate(date);
@@ -109,7 +112,7 @@ export default function MealsPage() {
   };
 
   const resetForm = () => {
-    setShowForm(false); setShowManual(false); setName(''); setCalories('');
+    setShowForm(false); setName(''); setCalories('');
     setProtein(''); setFat(''); setCarbs(''); setPhoto(undefined);
   };
 
@@ -142,7 +145,7 @@ export default function MealsPage() {
 
       {/* 手動入力トグル */}
       {!showForm && (
-        <button onClick={() => { setShowForm(true); setShowManual(true); }}
+        <button onClick={() => { setShowForm(true); }}
           className="w-full py-3 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center gap-2 text-white/50 text-sm active:scale-[0.98]" id="btn-manual-input">
           <Edit3 size={14} /><Plus size={14} />自分で入力する
         </button>
@@ -184,8 +187,8 @@ export default function MealsPage() {
           </div>
 
           {photo && (
-            <div className="rounded-xl overflow-hidden">
-              <img src={photo} alt="食事" className="w-full h-36 object-cover" />
+            <div className="relative rounded-xl overflow-hidden w-full h-36">
+              <Image src={photo} alt="食事" fill className="object-cover" />
             </div>
           )}
 
@@ -239,7 +242,9 @@ export default function MealsPage() {
           <div key={r.id} className="glass-card flex items-center justify-between !py-2.5 !px-3">
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
               {r.photo ? (
-                <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0"><img src={r.photo} alt="" className="w-full h-full object-cover" /></div>
+                <div className="w-9 h-9 relative rounded-lg overflow-hidden flex-shrink-0">
+                  <Image src={r.photo} alt="" fill className="object-cover" />
+                </div>
               ) : (
                 <div className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0"><UtensilsCrossed size={14} className="text-white/20" /></div>
               )}

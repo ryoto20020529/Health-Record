@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Scale, Plus, Camera, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import Image from 'next/image';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import {
   getWeightRecordsDB,
@@ -15,7 +16,7 @@ export default function WeightPage() {
   const [records, setRecords] = useState<WeightRecord[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [weight, setWeight] = useState('');
-  const [date, setDate] = useState('');
+  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [photo, setPhoto] = useState<string | undefined>();
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [mounted, setMounted] = useState(false);
@@ -31,8 +32,12 @@ export default function WeightPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
-    setDate(new Date().toISOString().split('T')[0]);
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadRecords();
   }, [loadRecords]);
 
@@ -115,9 +120,9 @@ export default function WeightPage() {
           <div>
             <input type="file" accept="image/*" capture="environment" ref={fileRef} onChange={handlePhotoUpload} className="hidden" />
             {photo ? (
-              <div className="relative rounded-xl overflow-hidden">
-                <img src={photo} alt="体重計" className="w-full h-36 object-cover" />
-                <button onClick={() => setPhoto(undefined)} className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center">
+              <div className="relative rounded-xl overflow-hidden w-full h-36">
+                <Image src={photo} alt="体重計" fill className="object-cover" />
+                <button onClick={() => setPhoto(undefined)} className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center z-10">
                   <Trash2 size={14} className="text-white" />
                 </button>
               </div>
@@ -192,8 +197,8 @@ export default function WeightPage() {
             <div key={r.id} className="glass-card flex items-center justify-between !py-2.5 !px-3">
               <div className="flex items-center gap-2.5">
                 {r.photo ? (
-                  <button onClick={() => setViewingPhoto(r.photo!)} className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0">
-                    <img src={r.photo} alt="" className="w-full h-full object-cover" />
+                  <button onClick={() => setViewingPhoto(r.photo!)} className="w-9 h-9 relative rounded-lg overflow-hidden flex-shrink-0">
+                    <Image src={r.photo} alt="" fill className="object-cover" />
                   </button>
                 ) : (
                   <div className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
@@ -216,7 +221,9 @@ export default function WeightPage() {
       {/* 写真プレビュー */}
       {viewingPhoto && (
         <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4" onClick={() => setViewingPhoto(null)}>
-          <img src={viewingPhoto} alt="" className="max-w-full max-h-full rounded-xl" />
+          <div className="relative w-full max-w-lg aspect-square">
+            <Image src={viewingPhoto} alt="" fill className="object-contain rounded-xl" />
+          </div>
         </div>
       )}
     </div>

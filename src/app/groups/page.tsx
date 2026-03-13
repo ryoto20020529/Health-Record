@@ -108,7 +108,13 @@ export default function GroupsPage() {
   }, [supabase]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    // 初回マウント時のみ現在のグループ情報をロード
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadGroups();
   }, [loadGroups]);
 

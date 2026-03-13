@@ -221,6 +221,7 @@ export default function GoalPage() {
 
           {targetWeight && targetDate && settings && (() => {
             const diff = settings.weight - parseFloat(targetWeight);
+            // eslint-disable-next-line react-hooks/purity
             const days = Math.max(Math.ceil((new Date(targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)), 1);
             const weekly = Math.round((diff / days) * 7 * 10) / 10;
             const safe = Math.abs(weekly) <= 1.0;

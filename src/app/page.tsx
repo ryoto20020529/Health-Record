@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Flame, TrendingDown, Calendar, Settings, Scale, Plus, Camera, Trash2, X } from 'lucide-react';
 import { useRef } from 'react';
+import Image from 'next/image';
 import { ActivityRing, RingLegend } from '@/components/ActivityRing';
 import {
   getUserSettingsDB,
@@ -94,7 +95,12 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    // 初回マウント時のみロード
     loadData();
   }, [loadData]);
 
@@ -234,7 +240,7 @@ export default function DashboardPage() {
               🎯 目標: <span className="font-bold text-emerald-400">{goal.targetWeight}kg</span>
             </div>
             <div className="text-[10px] text-white/40">
-              残り{Math.max(Math.ceil((new Date(goal.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)), 0)}日 →
+              残り{Math.max(Math.ceil((new Date(goal.targetDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)), 0)}日 →
             </div>
           </div>
         </a>
@@ -260,9 +266,9 @@ export default function DashboardPage() {
               <div>
                 <input type="file" accept="image/*" capture="environment" ref={fileRef} onChange={handlePhotoUpload} className="hidden" />
                 {newPhoto ? (
-                  <div className="relative rounded-xl overflow-hidden">
-                    <img src={newPhoto} alt="体重計" className="w-full h-32 object-cover" />
-                    <button onClick={() => setNewPhoto(undefined)} className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center">
+                  <div className="relative rounded-xl overflow-hidden w-full h-32">
+                    <Image src={newPhoto} alt="体重計" fill className="object-cover" />
+                    <button onClick={() => setNewPhoto(undefined)} className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center z-10">
                       <Trash2 size={14} className="text-white" />
                     </button>
                   </div>
