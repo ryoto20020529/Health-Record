@@ -128,14 +128,14 @@ export default function ExercisePage() {
           <p className="text-white/40 text-xs mt-1">消費カロリーを自動計算</p>
         </div>
         <button onClick={() => setShowForm(!showForm)}
-          className="w-11 h-11 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 flex items-center justify-center active:scale-95" id="btn-add-exercise">
+          className="w-11 h-11 rounded-xl bg-linear-to-r from-emerald-500 to-cyan-500 flex items-center justify-center active:scale-95" id="btn-add-exercise">
           {showForm ? <X size={20} className="text-white" /> : <Plus size={20} className="text-white" />}
         </button>
       </div>
 
       {/* 日付 & サマリー */}
       <div className="flex items-center gap-3">
-        <input type="date" value={selectedDate} onChange={e => handleDateChange(e.target.value)} className="input-field !w-auto flex-shrink-0" id="input-exercise-date" />
+        <input type="date" value={selectedDate} onChange={e => handleDateChange(e.target.value)} className="input-field w-auto! shrink-0" id="input-exercise-date" />
         <div className="flex-1 flex gap-3 justify-end">
           <div className="text-right">
             <div className="text-[9px] text-white/40">消費</div>
@@ -149,7 +149,7 @@ export default function ExercisePage() {
 
       {/* 目標ベースの残りカロリー */}
       {goal && (
-        <div className="glass-card !py-3">
+        <div className="glass-card py-3!">
           <div className="flex items-center justify-between">
             <span className="text-xs text-white/60 flex items-center gap-1.5"><Target size={12} className="text-emerald-400" />目標まで</span>
             {(() => {
@@ -162,7 +162,7 @@ export default function ExercisePage() {
             })()}
           </div>
           <div className="mt-1.5 w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
-            <div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-emerald-500 transition-all duration-500"
+            <div className="h-full rounded-full bg-linear-to-r from-orange-500 to-emerald-500 transition-all duration-500"
               style={{ width: `${Math.min((totalCalBurned / Math.max(todayCalIn - goal.dailyCalorieTarget, 1)) * 100, 100)}%` }} />
           </div>
         </div>
@@ -174,7 +174,7 @@ export default function ExercisePage() {
         <div className="glass-card slide-up space-y-4">
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
-            <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="運動を検索..." className="input-field !pl-9 text-sm" id="input-exercise-search" />
+            <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="運動を検索..." className="input-field pl-9! text-sm" id="input-exercise-search" />
           </div>
 
           <div className="grid grid-cols-3 gap-1.5 max-h-40 overflow-y-auto">
@@ -182,7 +182,7 @@ export default function ExercisePage() {
               <button key={preset.name} onClick={() => { setSelectedPreset(preset.name); setCustomName(''); }}
                 className={`py-2.5 px-1.5 rounded-xl text-xs font-medium transition-all text-center active:scale-95 ${
                   selectedPreset === preset.name
-                    ? 'bg-gradient-to-r from-emerald-500/30 to-cyan-500/30 text-white border border-emerald-500/40'
+                    ? 'bg-linear-to-r from-emerald-500/30 to-cyan-500/30 text-white border border-emerald-500/40'
                     : 'bg-white/5 text-white/50 border border-white/8'}`}>
                 <div className="text-base mb-0.5">{EMOJI_MAP[preset.name] || '🏅'}</div>
                 {preset.nameJa}
@@ -199,7 +199,7 @@ export default function ExercisePage() {
                 <button key={key} onClick={() => setCustomIntensity(key)}
                   className={`py-2 rounded-lg text-xs font-medium transition-all active:scale-95 ${
                     customIntensity === key
-                      ? 'bg-gradient-to-r from-emerald-500/30 to-cyan-500/30 text-white border border-emerald-500/40'
+                      ? 'bg-linear-to-r from-emerald-500/30 to-cyan-500/30 text-white border border-emerald-500/40'
                       : 'bg-white/5 text-white/40 border border-white/8'}`}>
                   {emoji} {label}
                 </button>
@@ -229,7 +229,7 @@ export default function ExercisePage() {
         {records.length === 0 ? (
           <p className="text-center text-white/20 text-xs py-6">運動記録はまだありません</p>
         ) : records.map(r => (
-          <div key={r.id} className="glass-card flex items-center justify-between !py-2.5 !px-3">
+          <div key={r.id} className="glass-card flex items-center justify-between py-2.5! px-3!">
             <div>
               <div className="text-sm font-semibold">{r.name}</div>
               <div className="text-[9px] text-white/40 flex gap-2 mt-0.5">

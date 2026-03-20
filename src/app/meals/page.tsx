@@ -160,7 +160,7 @@ export default function MealsPage() {
       {/* 写真クイック入力ボタン */}
       <input type="file" accept="image/*" capture="environment" ref={fileRef} onChange={handlePhotoUpload} className="hidden" />
       <button onClick={() => fileRef.current?.click()}
-        className="w-full py-5 rounded-2xl bg-gradient-to-r from-emerald-500/15 to-cyan-500/15 border border-emerald-500/25 flex items-center justify-center gap-3 text-emerald-300 font-semibold active:scale-[0.98] transition-all" id="btn-photo-quick">
+        className="w-full py-5 rounded-2xl bg-linear-to-r from-emerald-500/15 to-cyan-500/15 border border-emerald-500/25 flex items-center justify-center gap-3 text-emerald-300 font-semibold active:scale-[0.98] transition-all" id="btn-photo-quick">
         {analyzing ? (
           <><Loader2 size={22} className="animate-spin" />AI解析中...</>
         ) : (
@@ -178,7 +178,7 @@ export default function MealsPage() {
 
       {/* 日付 & サマリー */}
       <div className="flex items-center gap-3">
-        <input type="date" value={selectedDate} onChange={e => handleDateChange(e.target.value)} className="input-field !w-auto flex-shrink-0" id="input-meal-date" />
+        <input type="date" value={selectedDate} onChange={e => handleDateChange(e.target.value)} className="input-field w-auto! shrink-0" id="input-meal-date" />
         {settings && (
           <div className="flex-1 text-right">
             <div className="text-[10px] text-white/40">残りカロリー</div>
@@ -188,7 +188,7 @@ export default function MealsPage() {
       </div>
 
       {/* デイリーサマリー */}
-      <div className="glass-card !py-3">
+      <div className="glass-card py-3!">
         <div className="grid grid-cols-4 gap-2 text-center">
           <div><div className="text-[9px] text-white/40">カロリー</div><div className="text-sm font-bold">{totalCal}</div></div>
           <div><div className="text-[9px] text-white/40">P</div><div className="text-sm font-bold text-emerald-400">{totalP}g</div></div>
@@ -197,7 +197,7 @@ export default function MealsPage() {
         </div>
         {settings && (
           <div className="mt-2 w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
-            <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 transition-all duration-500"
+            <div className="h-full rounded-full bg-linear-to-r from-emerald-500 to-cyan-500 transition-all duration-500"
               style={{ width: `${Math.min((totalCal / settings.targetCalories) * 100, 100)}%` }} />
           </div>
         )}
@@ -235,7 +235,7 @@ export default function MealsPage() {
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
               <input type="text" value={name} onChange={e => handleNameChange(e.target.value)}
                 onFocus={() => name.length >= 1 && suggestions.length > 0 && setShowSuggestions(true)}
-                placeholder="食事名を入力（例: 鶏むね肉）" className="input-field !pl-9" id="input-meal-name" />
+                placeholder="食事名を入力（例: 鶏むね肉）" className="input-field pl-9!" id="input-meal-name" />
             </div>
 
             {/* サジェストドロップダウン */}
@@ -291,26 +291,26 @@ export default function MealsPage() {
         {records.length === 0 ? (
           <p className="text-center text-white/20 text-xs py-6">食事記録はまだありません</p>
         ) : records.map(r => (
-          <div key={r.id} className="glass-card flex items-center justify-between !py-2.5 !px-3">
+          <div key={r.id} className="glass-card flex items-center justify-between py-2.5! px-3!">
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
               {r.photo ? (
-                <div className="w-9 h-9 relative rounded-lg overflow-hidden flex-shrink-0">
+                <div className="w-9 h-9 relative rounded-lg overflow-hidden shrink-0">
                   <Image src={r.photo} alt="" fill className="object-cover" />
                 </div>
               ) : (
-                <div className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0"><UtensilsCrossed size={14} className="text-white/20" /></div>
+                <div className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center shrink-0"><UtensilsCrossed size={14} className="text-white/20" /></div>
               )}
               <div className="min-w-0">
                 <div className="text-sm font-semibold truncate flex items-center gap-1.5">
                   {r.name}
-                  <span className="text-[8px] text-white/30 bg-white/5 px-1 py-0.5 rounded flex-shrink-0">{MEAL_TYPE_LABELS[r.mealType]}</span>
+                  <span className="text-[8px] text-white/30 bg-white/5 px-1 py-0.5 rounded shrink-0">{MEAL_TYPE_LABELS[r.mealType]}</span>
                 </div>
                 <div className="text-[9px] text-white/40 flex gap-1.5 mt-0.5">
                   <span>{r.calories}kcal</span><span>P:{r.protein}g</span><span>F:{r.fat}g</span><span>C:{r.carbs}g</span>
                 </div>
               </div>
             </div>
-            <button onClick={() => handleDelete(r.id)} className="p-2 rounded-lg active:bg-red-500/20 text-white/25 active:text-red-400 transition-all flex-shrink-0">
+            <button onClick={() => handleDelete(r.id)} className="p-2 rounded-lg active:bg-red-500/20 text-white/25 active:text-red-400 transition-all shrink-0">
               <Trash2 size={14} />
             </button>
           </div>

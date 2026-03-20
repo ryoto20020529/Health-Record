@@ -99,7 +99,7 @@ export default function WeightPage() {
           <p className="text-white/40 text-xs mt-1">毎日の体重を写真付きで記録</p>
         </div>
         <button onClick={() => setShowForm(!showForm)}
-          className="w-11 h-11 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 flex items-center justify-center active:scale-95" id="btn-add-weight">
+          className="w-11 h-11 rounded-xl bg-linear-to-r from-emerald-500 to-cyan-500 flex items-center justify-center active:scale-95" id="btn-add-weight">
           {showForm ? <X size={20} className="text-white" /> : <Plus size={20} className="text-white" />}
         </button>
       </div>
@@ -194,14 +194,14 @@ export default function WeightPage() {
           <p className="text-center text-white/20 text-xs py-6">まだ記録がありません</p>
         ) : (
           [...records].reverse().slice(0, 20).map(r => (
-            <div key={r.id} className="glass-card flex items-center justify-between !py-2.5 !px-3">
+            <div key={r.id} className="glass-card flex items-center justify-between py-2.5! px-3!">
               <div className="flex items-center gap-2.5">
                 {r.photo ? (
-                  <button onClick={() => setViewingPhoto(r.photo!)} className="w-9 h-9 relative rounded-lg overflow-hidden flex-shrink-0">
+                  <button onClick={() => setViewingPhoto(r.photo!)} className="w-9 h-9 relative rounded-lg overflow-hidden shrink-0">
                     <Image src={r.photo} alt="" fill className="object-cover" />
                   </button>
                 ) : (
-                  <div className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
+                  <div className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
                     <Scale size={14} className="text-white/20" />
                   </div>
                 )}

@@ -40,7 +40,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm space-y-8 fade-in">
         {/* Logo */}
         <div className="text-center">
-          <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 flex items-center justify-center mb-4">
+          <div className="w-20 h-20 mx-auto rounded-2xl bg-linear-to-br from-emerald-500/20 to-cyan-500/20 flex items-center justify-center mb-4">
             <Activity size={36} className="text-emerald-400" />
           </div>
           <h1 className="text-2xl font-bold gradient-text">
@@ -62,7 +62,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="example@email.com"
-                className="input-field !pl-10"
+                className="input-field pl-10!"
                 required
                 id="input-email"
                 autoComplete="email"
@@ -79,7 +79,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="6文字以上"
-                className="input-field !pl-10"
+                className="input-field pl-10!"
                 required
                 minLength={6}
                 id="input-password"
@@ -103,7 +103,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full btn-primary flex items-center justify-center gap-2 !py-4 disabled:opacity-50"
+            className="w-full btn-primary flex items-center justify-center gap-2 py-4! disabled:opacity-50"
             id="btn-auth-submit"
           >
             {loading ? (

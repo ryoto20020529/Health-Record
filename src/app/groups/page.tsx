@@ -261,7 +261,7 @@ export default function GroupsPage() {
           <button onClick={() => setShowJoin(!showJoin)}
             className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white/60 active:scale-95">参加</button>
           <button onClick={() => setShowCreate(!showCreate)}
-            className="px-3 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-xs text-white font-semibold active:scale-95">
+            className="px-3 py-2 rounded-xl bg-linear-to-r from-emerald-500 to-cyan-500 text-xs text-white font-semibold active:scale-95">
             <Plus size={14} className="inline mr-1" />作成
           </button>
         </div>
@@ -273,7 +273,7 @@ export default function GroupsPage() {
 
       {/* プライバシーノート */}
       <div className="flex items-center gap-2 bg-emerald-500/5 border border-emerald-500/15 rounded-xl px-3 py-2">
-        <Shield size={14} className="text-emerald-400 flex-shrink-0" />
+        <Shield size={14} className="text-emerald-400 shrink-0" />
         <p className="text-[10px] text-white/50">体重・目標の詳細はプライバシー保護のため非公開です</p>
       </div>
 
@@ -315,7 +315,7 @@ export default function GroupsPage() {
           <div className="space-y-2">
             {activityFeed.map(feed => (
               <div key={feed.id} className="bg-emerald-500/5 border border-emerald-500/10 rounded-xl px-3 py-2.5 flex items-start gap-2">
-                <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 mt-0.5">
                   <Dumbbell size={10} className="text-emerald-400" />
                 </div>
                 <div>
@@ -332,7 +332,7 @@ export default function GroupsPage() {
       {/* グループ一覧 */}
       {groups.length === 0 ? (
         <div className="text-center py-12">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-emerald-500/15 to-cyan-500/15 flex items-center justify-center mb-4">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-linear-to-br from-emerald-500/15 to-cyan-500/15 flex items-center justify-center mb-4">
             <Users size={28} className="text-emerald-400/50" />
           </div>
           <p className="text-white/40 text-sm">グループに参加していません</p>

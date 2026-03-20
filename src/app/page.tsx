@@ -169,7 +169,7 @@ export default function DashboardPage() {
 
       {/* ── 目標プログレス（ホームに統合） ── */}
       {goal && settings && (
-        <a href="/goal" className="glass-card block bg-gradient-to-r from-emerald-500/5 to-cyan-500/5 border-emerald-500/15 hover:border-emerald-500/25 transition-all">
+        <a href="/goal" className="glass-card block bg-linear-to-r from-emerald-500/5 to-cyan-500/5 border-emerald-500/15 hover:border-emerald-500/25 transition-all">
           <div className="flex items-center gap-2 mb-3">
             <Target size={16} className="text-emerald-400" />
             <h3 className="text-xs font-semibold text-white/70">目標プラン</h3>
@@ -248,17 +248,17 @@ export default function DashboardPage() {
       {/* 今日の数値 */}
       {settings && (
         <div className="grid grid-cols-3 gap-2">
-          <div className="glass-card !p-3 text-center">
+          <div className="glass-card p-3! text-center">
             <Flame size={14} className="text-orange-400 mx-auto mb-1" />
             <div className="text-lg font-bold text-orange-400">{todayCalIn}</div>
             <div className="text-[8px] text-white/30">摂取kcal</div>
           </div>
-          <div className="glass-card !p-3 text-center">
+          <div className="glass-card p-3! text-center">
             <TrendingDown size={14} className="text-cyan-400 mx-auto mb-1" />
             <div className="text-lg font-bold text-cyan-400">{todayCalOut}</div>
             <div className="text-[8px] text-white/30">消費kcal</div>
           </div>
-          <div className="glass-card !p-3 text-center">
+          <div className="glass-card p-3! text-center">
             <Calendar size={14} className="text-emerald-400 mx-auto mb-1" />
             <div className="text-lg font-bold text-emerald-400">{netCalories}</div>
             <div className="text-[8px] text-white/30">ネットkcal</div>
@@ -287,13 +287,13 @@ export default function DashboardPage() {
               value={stepInput}
               onChange={e => setStepInput(e.target.value)}
               placeholder="8000"
-              className="input-field flex-1 !py-2 text-sm"
+              className="input-field flex-1 py-2! text-sm"
               id="input-steps"
             />
             <button
               onClick={handleSaveSteps}
               disabled={!stepInput}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-500 text-white text-sm font-semibold disabled:opacity-30 active:scale-95 transition-all"
+              className="px-4 py-2 rounded-xl bg-linear-to-r from-violet-500 to-purple-500 text-white text-sm font-semibold disabled:opacity-30 active:scale-95 transition-all"
             >
               記録
             </button>
@@ -308,7 +308,7 @@ export default function DashboardPage() {
           <div className="flex-1">
             <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-500 transition-all duration-500"
+                className="h-full rounded-full bg-linear-to-r from-violet-500 to-purple-500 transition-all duration-500"
                 style={{ width: `${Math.min((todaySteps / 8000) * 100, 100)}%` }}
               />
             </div>
@@ -363,7 +363,7 @@ export default function DashboardPage() {
                 return (
                   <div key={i} className="flex-1 flex flex-col items-center gap-1">
                     <div className="text-[8px] text-white/30">{isLatest ? d.weight : ''}</div>
-                    <div className={`w-full rounded-t-md transition-all duration-500 ${isLatest ? 'bg-gradient-to-t from-emerald-500 to-cyan-500' : 'bg-white/10'}`}
+                    <div className={`w-full rounded-t-md transition-all duration-500 ${isLatest ? 'bg-linear-to-t from-emerald-500 to-cyan-500' : 'bg-white/10'}`}
                       style={{ height: `${height}px` }} />
                     <div className="text-[7px] text-white/25">{d.date}</div>
                   </div>

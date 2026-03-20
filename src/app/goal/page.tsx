@@ -179,7 +179,7 @@ export default function GoalPage() {
       {/* 目標未設定 or セットアップ */}
       {!goal && !showSetup && (
         <div className="glass-card text-center py-10 space-y-4">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 flex items-center justify-center">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-linear-to-br from-emerald-500/20 to-cyan-500/20 flex items-center justify-center">
             <Target size={28} className="text-emerald-400" />
           </div>
           <div>
@@ -366,7 +366,7 @@ export default function GoalPage() {
 
           {/* モチベーション */}
           {calorieStatus === 'good' && exerciseStatus === 'good' && (
-            <div className="glass-card text-center py-4 bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 border-emerald-500/20">
+            <div className="glass-card text-center py-4 bg-linear-to-r from-emerald-500/10 to-cyan-500/10 border-emerald-500/20">
               <Award size={28} className="text-yellow-400 mx-auto mb-2" />
               <div className="text-sm font-bold text-white">今日は完璧です！🎉</div>
               <div className="text-[10px] text-white/50 mt-1">

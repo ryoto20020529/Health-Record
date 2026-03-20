@@ -101,7 +101,7 @@ export default function SettingsPage() {
               <button key={g} onClick={() => setGender(g)}
                 className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all active:scale-95 ${
                   gender === g
-                    ? 'bg-gradient-to-r from-emerald-500/30 to-cyan-500/30 text-white border border-emerald-500/40'
+                    ? 'bg-linear-to-r from-emerald-500/30 to-cyan-500/30 text-white border border-emerald-500/40'
                     : 'bg-white/5 text-white/40 border border-white/10'
                 }`}>{g === 'male' ? '♂ 男性' : '♀ 女性'}</button>
             ))}
@@ -115,7 +115,7 @@ export default function SettingsPage() {
               <button key={level} onClick={() => setActivityLevel(level)}
                 className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-all active:scale-[0.98] ${
                   activityLevel === level
-                    ? 'bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 text-white border border-emerald-500/30'
+                    ? 'bg-linear-to-r from-emerald-500/20 to-cyan-500/20 text-white border border-emerald-500/30'
                     : 'bg-white/3 text-white/50 border border-white/8'
                 }`}>{label}</button>
             ))}
