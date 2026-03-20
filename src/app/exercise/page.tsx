@@ -10,7 +10,6 @@ import {
   getActiveGoalDB,
   getMealRecordsByDateDB,
   generateId,
-  getTodayString,
 } from '@/lib/database';
 import { calculateExerciseCalories } from '@/lib/calculations';
 import { EXERCISE_PRESETS } from '@/lib/constants';
@@ -117,8 +116,8 @@ export default function ExercisePage() {
 
   const EMOJI_MAP: Record<string, string> = {
     walking: '🚶', jogging: '🏃', running: '💨', cycling: '🚴', swimming: '🏊',
-    weight_training: '🏋️', weight_training_heavy: '🏋️', yoga: '🧘', stretching: '🤸',
-    hiit: '🔥', dance: '💃', tennis: '🎾', basketball: '🏀', soccer: '⚽', stairs: '📶',
+    weight_training: '🏋️', yoga: '🧘', stretching: '🤸',
+    hiit: '🔥', dance: '💃', tennis: '🎾', stairs: '📶',
   };
 
   return (

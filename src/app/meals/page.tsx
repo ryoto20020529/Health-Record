@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
-import { UtensilsCrossed, Camera, Trash2, Sparkles, Loader2, Edit3, X, Plus } from 'lucide-react';
+import { UtensilsCrossed, Camera, Trash2, Sparkles, Loader2, Edit3, X, Plus, Search } from 'lucide-react';
 import {
   getMealRecordsByDateDB,
   saveMealRecordDB,
@@ -10,8 +10,8 @@ import {
   getUserSettingsDB,
   generateId,
 } from '@/lib/database';
-import { MEAL_TYPE_LABELS, autoDetectMealType } from '@/lib/constants';
-import type { MealRecord, UserSettings } from '@/lib/types';
+import { MEAL_TYPE_LABELS, autoDetectMealType, FOOD_DATABASE } from '@/lib/constants';
+import type { MealRecord, UserSettings, FoodItem } from '@/lib/types';
 
 export default function MealsPage() {
   const [records, setRecords] = useState<MealRecord[]>([]);
@@ -27,6 +27,8 @@ export default function MealsPage() {
   const [photo, setPhoto] = useState<string | undefined>();
   const [analyzing, setAnalyzing] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [suggestions, setSuggestions] = useState<FoodItem[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const loadData = useCallback(async (date: string) => {
@@ -45,7 +47,6 @@ export default function MealsPage() {
   }, []);
 
   useEffect(() => {
-    // 初回マウント時のみ現在のselectedDateでロード
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData(selectedDate);
   }, [loadData, selectedDate]);
@@ -55,6 +56,30 @@ export default function MealsPage() {
     loadData(date);
   };
 
+  // 食事名入力時にサジェスト
+  const handleNameChange = (value: string) => {
+    setName(value);
+    if (value.length >= 1) {
+      const q = value.toLowerCase();
+      const results = FOOD_DATABASE.filter(f => f.name.toLowerCase().includes(q)).slice(0, 6);
+      setSuggestions(results);
+      setShowSuggestions(results.length > 0);
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  };
+
+  // サジェストから選択
+  const selectSuggestion = (item: FoodItem) => {
+    setName(item.name);
+    setCalories(item.calories.toString());
+    setProtein(item.protein.toString());
+    setFat(item.fat.toString());
+    setCarbs(item.carbs.toString());
+    setShowSuggestions(false);
+  };
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -62,7 +87,6 @@ export default function MealsPage() {
     reader.onload = async () => {
       const base64 = reader.result as string;
       setPhoto(base64);
-      // 自動的にAI解析を開始
       await analyzePhoto(base64);
     };
     reader.readAsDataURL(file);
@@ -114,6 +138,7 @@ export default function MealsPage() {
   const resetForm = () => {
     setShowForm(false); setName(''); setCalories('');
     setProtein(''); setFat(''); setCarbs(''); setPhoto(undefined);
+    setSuggestions([]); setShowSuggestions(false);
   };
 
   if (!mounted) return null;
@@ -203,9 +228,36 @@ export default function MealsPage() {
             ))}
           </div>
 
-          <div>
+          {/* メニュー名入力 + サジェスト */}
+          <div className="relative">
             <label className="text-xs text-white/50 mb-1 block">メニュー名</label>
-            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="チキンサラダ" className="input-field" id="input-meal-name" />
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+              <input type="text" value={name} onChange={e => handleNameChange(e.target.value)}
+                onFocus={() => name.length >= 1 && suggestions.length > 0 && setShowSuggestions(true)}
+                placeholder="食事名を入力（例: 鶏むね肉）" className="input-field !pl-9" id="input-meal-name" />
+            </div>
+
+            {/* サジェストドロップダウン */}
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute z-20 w-full mt-1 bg-[#0f1527] border border-white/15 rounded-xl overflow-hidden shadow-xl slide-up">
+                {suggestions.map((item, i) => (
+                  <button
+                    key={i}
+                    onClick={() => selectSuggestion(item)}
+                    className="w-full text-left px-3 py-2.5 hover:bg-white/5 active:bg-white/10 transition-all border-b border-white/5 last:border-0"
+                  >
+                    <div className="text-sm text-white/90">{item.name}</div>
+                    <div className="text-[9px] text-white/40 flex gap-2 mt-0.5">
+                      <span className="text-orange-400">{item.calories}kcal</span>
+                      <span>P:{item.protein}g</span>
+                      <span>F:{item.fat}g</span>
+                      <span>C:{item.carbs}g</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* PFC入力をコンパクトに */}

@@ -1,11 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Users, Copy, Plus, X, Crown, Flame, Dumbbell, Check } from 'lucide-react';
+import { Users, Copy, Plus, X, Crown, Flame, Dumbbell, Check, Share2, MessageCircle, Mail, Shield, Bell } from 'lucide-react';
 import {
-  getUserSettingsDB,
-  getMealRecordsByDateDB,
-  getExerciseRecordsByDateDB,
   getTodayString,
   generateId,
 } from '@/lib/database';
@@ -27,6 +24,13 @@ interface Group {
   members: GroupMember[];
 }
 
+interface ActivityFeedItem {
+  id: string;
+  userName: string;
+  message: string;
+  createdAt: string;
+}
+
 export default function GroupsPage() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -36,6 +40,8 @@ export default function GroupsPage() {
   const [copied, setCopied] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState('');
+  const [showShareMenu, setShowShareMenu] = useState<string | null>(null);
+  const [activityFeed, setActivityFeed] = useState<ActivityFeedItem[]>([]);
 
   const supabase = createClient();
 
@@ -44,7 +50,6 @@ export default function GroupsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // ユーザーが参加しているグループを取得
       const { data: memberships } = await supabase
         .from('group_members')
         .select('group_id')
@@ -60,8 +65,9 @@ export default function GroupsPage() {
 
       if (!groupsData) return;
 
-      // 各グループのメンバーを取得
       const loadedGroups: Group[] = [];
+      const feedItems: ActivityFeedItem[] = [];
+
       for (const g of groupsData) {
         const { data: members } = await supabase
           .from('group_members')
@@ -70,7 +76,6 @@ export default function GroupsPage() {
 
         const memberInfos: GroupMember[] = [];
         for (const m of (members || [])) {
-          // メンバーのメールを取得（簡易的にuser_idの一部を使用）
           const { data: meals } = await supabase
             .from('meal_records')
             .select('calories')
@@ -79,18 +84,36 @@ export default function GroupsPage() {
 
           const { data: exercises } = await supabase
             .from('exercise_records')
-            .select('calories_burned, duration')
+            .select('calories_burned, duration, name')
             .eq('user_id', m.user_id)
             .eq('date', getTodayString());
 
+          const totalCalIn = (meals || []).reduce((s: number, r: { calories: number }) => s + r.calories, 0);
+          const totalCalOut = (exercises || []).reduce((s: number, r: { calories_burned: number }) => s + r.calories_burned, 0);
+          const totalExMin = (exercises || []).reduce((s: number, r: { duration: number }) => s + r.duration, 0);
+
+          const memberName = m.user_id === user.id ? 'あなた' : `メンバー${memberInfos.length + 1}`;
+
           memberInfos.push({
             userId: m.user_id,
-            email: m.user_id === user.id ? 'あなた' : `メンバー${memberInfos.length + 1}`,
-            todayCalIn: (meals || []).reduce((s: number, r: { calories: number }) => s + r.calories, 0),
-            todayCalOut: (exercises || []).reduce((s: number, r: { calories_burned: number }) => s + r.calories_burned, 0),
-            todayExMin: (exercises || []).reduce((s: number, r: { duration: number }) => s + r.duration, 0),
+            email: memberName,
+            todayCalIn: totalCalIn,
+            todayCalOut: totalCalOut,
+            todayExMin: totalExMin,
             isOwner: m.is_owner,
           });
+
+          // 運動完了フィードを生成（プライバシー保護: カロリーと種目のみ、体重・目標は非公開）
+          if (totalExMin > 0 && m.user_id !== user.id) {
+            const exerciseNames = (exercises || []).map((e: { name: string }) => e.name);
+            const uniqueNames = [...new Set(exerciseNames)].join('・');
+            feedItems.push({
+              id: `${m.user_id}-exercise-${getTodayString()}`,
+              userName: memberName,
+              message: `${uniqueNames}（${totalExMin}分）の運動を完了しました 🎉`,
+              createdAt: new Date().toISOString(),
+            });
+          }
         }
 
         loadedGroups.push({
@@ -102,6 +125,7 @@ export default function GroupsPage() {
       }
 
       setGroups(loadedGroups);
+      setActivityFeed(feedItems);
     } catch (err) {
       console.error('Groups load error:', err);
     }
@@ -113,7 +137,6 @@ export default function GroupsPage() {
   }, []);
 
   useEffect(() => {
-    // 初回マウント時のみ現在のグループ情報をロード
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadGroups();
   }, [loadGroups]);
@@ -167,7 +190,6 @@ export default function GroupsPage() {
         return;
       }
 
-      // 既に参加しているか確認
       const { data: existing } = await supabase
         .from('group_members')
         .select('id')
@@ -201,6 +223,31 @@ export default function GroupsPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // シェア機能
+  const shareInvite = async (group: Group, method: 'native' | 'line' | 'email') => {
+    const inviteUrl = `${window.location.origin}/groups?join=${group.inviteCode}`;
+    const message = `「${group.name}」グループに参加しよう！\n招待コード: ${group.inviteCode}\n${inviteUrl}`;
+
+    if (method === 'native') {
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: `${group.name} - ヘルスケア・トラッカー`, text: message });
+        } catch { /* user cancelled */ }
+      } else {
+        await navigator.clipboard.writeText(message);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } else if (method === 'line') {
+      const lineUrl = `https://line.me/R/share?text=${encodeURIComponent(message)}`;
+      window.open(lineUrl, '_blank');
+    } else if (method === 'email') {
+      const mailUrl = `mailto:?subject=${encodeURIComponent(`${group.name}に参加しよう`)}&body=${encodeURIComponent(message)}`;
+      window.location.href = mailUrl;
+    }
+    setShowShareMenu(null);
+  };
+
   if (!mounted) return null;
 
   return (
@@ -223,6 +270,12 @@ export default function GroupsPage() {
       {error && (
         <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-xs text-red-400 text-center">{error}</div>
       )}
+
+      {/* プライバシーノート */}
+      <div className="flex items-center gap-2 bg-emerald-500/5 border border-emerald-500/15 rounded-xl px-3 py-2">
+        <Shield size={14} className="text-emerald-400 flex-shrink-0" />
+        <p className="text-[10px] text-white/50">体重・目標の詳細はプライバシー保護のため非公開です</p>
+      </div>
 
       {/* グループ作成 */}
       {showCreate && (
@@ -252,6 +305,30 @@ export default function GroupsPage() {
         </div>
       )}
 
+      {/* 活動フィード */}
+      {activityFeed.length > 0 && (
+        <div className="glass-card">
+          <h3 className="text-xs font-semibold text-white/70 flex items-center gap-2 mb-3">
+            <Bell size={14} className="text-yellow-400" />
+            最新の活動
+          </h3>
+          <div className="space-y-2">
+            {activityFeed.map(feed => (
+              <div key={feed.id} className="bg-emerald-500/5 border border-emerald-500/10 rounded-xl px-3 py-2.5 flex items-start gap-2">
+                <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Dumbbell size={10} className="text-emerald-400" />
+                </div>
+                <div>
+                  <div className="text-xs text-white/80">
+                    <span className="font-semibold text-emerald-400">{feed.userName}</span>が{feed.message}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* グループ一覧 */}
       {groups.length === 0 ? (
         <div className="text-center py-12">
@@ -267,13 +344,46 @@ export default function GroupsPage() {
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <Users size={14} className="text-emerald-400" />{group.name}
             </h3>
-            <button onClick={() => copyCode(group.inviteCode)}
-              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 text-[10px] text-white/40 active:scale-95">
-              {copied ? <><Check size={10} />コピー済み</> : <><Copy size={10} />{group.inviteCode}</>}
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => copyCode(group.inviteCode)}
+                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 text-[10px] text-white/40 active:scale-95">
+                {copied ? <><Check size={10} />コピー済み</> : <><Copy size={10} />{group.inviteCode}</>}
+              </button>
+              {/* シェアボタン */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowShareMenu(showShareMenu === group.id ? null : group.id)}
+                  className="w-7 h-7 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400 active:scale-95 transition-all"
+                >
+                  <Share2 size={12} />
+                </button>
+                {showShareMenu === group.id && (
+                  <div className="absolute right-0 top-9 w-44 bg-[#0f1527] border border-white/15 rounded-xl shadow-xl z-30 slide-up overflow-hidden">
+                    <button
+                      onClick={() => shareInvite(group, 'native')}
+                      className="w-full text-left px-3 py-2.5 text-xs text-white/70 hover:bg-white/5 flex items-center gap-2 border-b border-white/5"
+                    >
+                      <Share2 size={12} className="text-blue-400" />共有...
+                    </button>
+                    <button
+                      onClick={() => shareInvite(group, 'line')}
+                      className="w-full text-left px-3 py-2.5 text-xs text-white/70 hover:bg-white/5 flex items-center gap-2 border-b border-white/5"
+                    >
+                      <MessageCircle size={12} className="text-green-400" />LINEで送る
+                    </button>
+                    <button
+                      onClick={() => shareInvite(group, 'email')}
+                      className="w-full text-left px-3 py-2.5 text-xs text-white/70 hover:bg-white/5 flex items-center gap-2"
+                    >
+                      <Mail size={12} className="text-cyan-400" />メールで送る
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* メンバー進捗 */}
+          {/* メンバー進捗 (プライバシー保護: カロリーと運動時間のみ表示、体重・目標は非公開) */}
           <div className="space-y-1.5">
             {group.members
               .sort((a, b) => (b.todayCalOut - b.todayCalIn) - (a.todayCalOut - a.todayCalIn))
@@ -291,8 +401,12 @@ export default function GroupsPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 text-[10px]">
-                  <span className="text-orange-400 flex items-center gap-0.5"><Flame size={10} />{member.todayCalIn}</span>
-                  <span className="text-cyan-400 flex items-center gap-0.5"><Dumbbell size={10} />{member.todayExMin}m</span>
+                  <span className="text-orange-400 flex items-center gap-0.5" title="摂取カロリー">
+                    <Flame size={10} />{member.todayCalIn}kcal
+                  </span>
+                  <span className="text-cyan-400 flex items-center gap-0.5" title="運動時間">
+                    <Dumbbell size={10} />{member.todayExMin}分
+                  </span>
                 </div>
               </div>
             ))}

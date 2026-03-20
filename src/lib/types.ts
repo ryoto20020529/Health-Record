@@ -87,3 +87,35 @@ export interface GoalPlan {
   createdAt: string;
   isActive: boolean;
 }
+
+// 食品データベースアイテム
+export interface FoodItem {
+  name: string;
+  calories: number;
+  protein: number;
+  fat: number;
+  carbs: number;
+  category: 'rice' | 'bread' | 'meat' | 'fish' | 'vegetable' | 'fruit' | 'dairy' | 'snack' | 'drink' | 'other';
+}
+
+// 歩数記録
+export interface StepRecord {
+  id: string;
+  date: string;
+  steps: number;
+  caloriesBurned: number;
+  source: 'device' | 'manual';
+  createdAt: string;
+}
+
+// グループ活動フィード
+export interface GroupActivityFeed {
+  id: string;
+  groupId: string;
+  userId: string;
+  userName: string;
+  type: 'exercise_complete' | 'meal_logged' | 'goal_achieved';
+  message: string;
+  createdAt: string;
+}
+

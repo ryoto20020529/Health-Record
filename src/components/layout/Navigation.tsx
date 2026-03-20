@@ -2,11 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Target, UtensilsCrossed, Dumbbell, Users } from 'lucide-react';
+import { Home, Scale, UtensilsCrossed, Dumbbell, Users } from 'lucide-react';
 
 const NAV_ITEMS = [
   { href: '/', icon: Home, label: 'ホーム' },
-  { href: '/goal', icon: Target, label: '目標' },
+  { href: '/weight', icon: Scale, label: '体重管理' },
   { href: '/meals', icon: UtensilsCrossed, label: '食事' },
   { href: '/exercise', icon: Dumbbell, label: '運動' },
   { href: '/groups', icon: Users, label: '仲間' },

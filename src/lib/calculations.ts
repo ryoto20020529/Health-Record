@@ -1,4 +1,5 @@
 import { ActivityLevel, Gender, UserSettings } from './types';
+import { FOOD_DATABASE } from './constants';
 
 // ── 活動係数 ──
 const ACTIVITY_MULTIPLIERS: Record<ActivityLevel, number> = {
@@ -127,3 +128,15 @@ export function calculateBMI(weight: number, height: number): number {
   const heightM = height / 100;
   return Math.round((weight / (heightM * heightM)) * 10) / 10;
 }
+
+/**
+ * 食事名から食品データベースを検索してPFC推定
+ */
+export function estimateMealPFC(query: string): { name: string; calories: number; protein: number; fat: number; carbs: number }[] {
+  if (!query || query.length < 1) return [];
+  const q = query.toLowerCase();
+  return FOOD_DATABASE.filter((f) =>
+    f.name.toLowerCase().includes(q)
+  ).slice(0, 5);
+}
+

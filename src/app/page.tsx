@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Flame, TrendingDown, Calendar, Settings, Scale, Plus, Camera, Trash2, X } from 'lucide-react';
+import { Flame, TrendingDown, Calendar, Settings, Scale, Plus, Camera, Trash2, X, Target, ArrowRight, Footprints, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useRef } from 'react';
 import Image from 'next/image';
 import { ActivityRing, RingLegend } from '@/components/ActivityRing';
@@ -25,11 +25,15 @@ export default function DashboardPage() {
   const [todayExMin, setTodayExMin] = useState(0);
   const [mealCount, setMealCount] = useState(0);
   const [weightData, setWeightData] = useState<{ date: string; weight: number }[]>([]);
+  const [latestWeight, setLatestWeight] = useState<number | null>(null);
   const [streak, setStreak] = useState(0);
   const [mounted, setMounted] = useState(false);
   const [showWeightModal, setShowWeightModal] = useState(false);
   const [newWeight, setNewWeight] = useState('');
   const [newPhoto, setNewPhoto] = useState<string | undefined>();
+  const [todaySteps, setTodaySteps] = useState(0);
+  const [showStepInput, setShowStepInput] = useState(false);
+  const [stepInput, setStepInput] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -57,6 +61,17 @@ export default function DashboardPage() {
     setNewPhoto(undefined);
   };
 
+  const handleSaveSteps = () => {
+    const steps = parseInt(stepInput);
+    if (!steps) return;
+    setTodaySteps(steps);
+    // ローカルストレージに保存
+    const today = getTodayString();
+    localStorage.setItem(`steps-${today}`, steps.toString());
+    setShowStepInput(false);
+    setStepInput('');
+  };
+
   const loadData = useCallback(async () => {
     try {
       const [s, g] = await Promise.all([getUserSettingsDB(), getActiveGoalDB()]);
@@ -79,6 +94,11 @@ export default function DashboardPage() {
       const last7 = weights.slice(-7).map(w => ({ date: w.date.slice(5), weight: w.weight }));
       setWeightData(last7);
 
+      // 最新体重
+      if (weights.length > 0) {
+        setLatestWeight(weights[weights.length - 1].weight);
+      }
+
       // ストリーク計算（連続記録日数）
       let s2 = 0;
       const dateSet = new Set(weights.map(w => w.date));
@@ -89,6 +109,10 @@ export default function DashboardPage() {
         else break;
       }
       setStreak(s2);
+
+      // 歩数データをローカルストレージから取得
+      const savedSteps = localStorage.getItem(`steps-${today}`);
+      if (savedSteps) setTodaySteps(parseInt(savedSteps));
     } catch (err) {
       console.error('Dashboard load error:', err);
     }
@@ -100,7 +124,6 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    // 初回マウント時のみロード
     loadData();
   }, [loadData]);
 
@@ -112,8 +135,17 @@ export default function DashboardPage() {
   const weightChange = weightData.length >= 2 ? 
     Math.round((weightData[weightData.length - 1].weight - weightData[0].weight) * 10) / 10 : 0;
 
+  // 目標関連
+  const daysLeft = goal ? Math.max(Math.ceil((new Date(goal.targetDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)), 0) : 0;
+  const weightToGo = goal && latestWeight ? Math.round((latestWeight - goal.targetWeight) * 10) / 10 : 0;
+  const calorieStatus = netCalories <= calorieTarget ? 'good' : netCalories <= calorieTarget * 1.1 ? 'warning' : 'over';
+  const exerciseStatus = goal && todayExMin >= goal.recommendedExerciseMin ? 'good' : todayExMin > 0 ? 'partial' : 'none';
+
+  // 歩数からの推定カロリー
+  const stepCalories = settings ? Math.round(todaySteps * 0.04 * settings.weight / 60) : Math.round(todaySteps * 0.04);
+
   return (
-    <div className="space-y-5 fade-in">
+    <div className="space-y-4 fade-in">
       {/* ヘッダー */}
       <div className="flex items-center justify-between pt-3">
         <div>
@@ -122,14 +154,9 @@ export default function DashboardPage() {
             {streak > 0 && <span className="text-orange-400">🔥 {streak}日連続記録中</span>}
           </p>
         </div>
-        <div className="flex items-center gap-1">
-          <a href="/weight" className="p-2 rounded-xl hover:bg-white/10 text-white/40 transition-all active:scale-95" title="体重記録">
-            <Scale size={18} />
-          </a>
-          <a href="/settings" className="p-2 rounded-xl hover:bg-white/10 text-white/40 transition-all active:scale-95" title="設定">
-            <Settings size={18} />
-          </a>
-        </div>
+        <a href="/settings" className="p-2 rounded-xl hover:bg-white/10 text-white/40 transition-all active:scale-95" title="設定">
+          <Settings size={18} />
+        </a>
       </div>
 
       {/* 設定未完了 */}
@@ -137,6 +164,65 @@ export default function DashboardPage() {
         <a href="/settings" className="glass-card text-center py-6 block">
           <p className="text-sm text-white/60">まず基本情報を設定してください</p>
           <p className="text-emerald-400 text-xs mt-1 font-semibold">設定へ →</p>
+        </a>
+      )}
+
+      {/* ── 目標プログレス（ホームに統合） ── */}
+      {goal && settings && (
+        <a href="/goal" className="glass-card block bg-gradient-to-r from-emerald-500/5 to-cyan-500/5 border-emerald-500/15 hover:border-emerald-500/25 transition-all">
+          <div className="flex items-center gap-2 mb-3">
+            <Target size={16} className="text-emerald-400" />
+            <h3 className="text-xs font-semibold text-white/70">目標プラン</h3>
+            <div className="ml-auto flex items-center gap-1 text-[10px] text-white/40">
+              詳細 <ArrowRight size={10} />
+            </div>
+          </div>
+
+          {/* 3列メトリクス */}
+          <div className="grid grid-cols-3 gap-2 text-center mb-3">
+            <div className="bg-white/5 rounded-xl p-2.5">
+              <div className="text-[9px] text-white/40">目標体重</div>
+              <div className="text-base font-bold text-emerald-400">{goal.targetWeight}<span className="text-[8px]">kg</span></div>
+            </div>
+            <div className="bg-white/5 rounded-xl p-2.5">
+              <div className="text-[9px] text-white/40">残り</div>
+              <div className="text-base font-bold text-cyan-400">{daysLeft}<span className="text-[8px]">日</span></div>
+            </div>
+            <div className="bg-white/5 rounded-xl p-2.5">
+              <div className="text-[9px] text-white/40">あと</div>
+              <div className="text-base font-bold text-blue-400">{weightToGo}<span className="text-[8px]">kg</span></div>
+            </div>
+          </div>
+
+          {/* 今日のステータス */}
+          <div className="flex items-center gap-2 text-[10px]">
+            {calorieStatus === 'good' ? (
+              <span className="flex items-center gap-1 text-emerald-400"><CheckCircle size={10} />カロリー順調</span>
+            ) : calorieStatus === 'warning' ? (
+              <span className="flex items-center gap-1 text-yellow-400"><AlertTriangle size={10} />少しオーバー</span>
+            ) : (
+              <span className="flex items-center gap-1 text-red-400"><AlertTriangle size={10} />カロリー超過</span>
+            )}
+            <span className="text-white/20">|</span>
+            {exerciseStatus === 'good' ? (
+              <span className="flex items-center gap-1 text-emerald-400"><CheckCircle size={10} />運動目標達成</span>
+            ) : exerciseStatus === 'partial' ? (
+              <span className="flex items-center gap-1 text-cyan-400">あと{goal.recommendedExerciseMin - todayExMin}分</span>
+            ) : (
+              <span className="text-white/40">運動未記録</span>
+            )}
+          </div>
+        </a>
+      )}
+
+      {/* 目標未設定 */}
+      {!goal && settings && (
+        <a href="/goal" className="glass-card block text-center py-5">
+          <Target size={24} className="text-emerald-400/50 mx-auto mb-2" />
+          <p className="text-sm text-white/50">目標を設定して毎日の行動を逆算</p>
+          <p className="text-emerald-400 text-xs mt-1.5 font-semibold flex items-center justify-center gap-1">
+            目標を設定する <ArrowRight size={12} />
+          </p>
         </a>
       )}
 
@@ -179,6 +265,66 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* 今日の歩数カード */}
+      <div className="glass-card">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-xs font-semibold text-white/70 flex items-center gap-2">
+            <Footprints size={14} className="text-violet-400" />
+            今日の歩数
+          </h3>
+          <button
+            onClick={() => setShowStepInput(!showStepInput)}
+            className="w-7 h-7 rounded-lg bg-violet-500/15 flex items-center justify-center text-violet-400 active:scale-95 transition-all">
+            {showStepInput ? <X size={14} /> : <Plus size={14} />}
+          </button>
+        </div>
+
+        {showStepInput && (
+          <div className="flex gap-2 mb-3 slide-up">
+            <input
+              type="number"
+              value={stepInput}
+              onChange={e => setStepInput(e.target.value)}
+              placeholder="8000"
+              className="input-field flex-1 !py-2 text-sm"
+              id="input-steps"
+            />
+            <button
+              onClick={handleSaveSteps}
+              disabled={!stepInput}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-500 text-white text-sm font-semibold disabled:opacity-30 active:scale-95 transition-all"
+            >
+              記録
+            </button>
+          </div>
+        )}
+
+        <div className="flex items-end gap-4">
+          <div>
+            <div className="text-2xl font-bold text-violet-400">{todaySteps.toLocaleString()}</div>
+            <div className="text-[9px] text-white/40">歩</div>
+          </div>
+          <div className="flex-1">
+            <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-500 transition-all duration-500"
+                style={{ width: `${Math.min((todaySteps / 8000) * 100, 100)}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-[8px] text-white/30 mt-1">
+              <span>0</span>
+              <span>目標 8,000歩</span>
+            </div>
+          </div>
+          {stepCalories > 0 && (
+            <div className="text-right">
+              <div className="text-sm font-bold text-violet-300">{stepCalories}</div>
+              <div className="text-[8px] text-white/30">kcal</div>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* 体重トレンド */}
       <div className="glass-card overflow-hidden relative">
@@ -232,19 +378,6 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* 目標情報 */}
-      {goal && (
-        <a href="/goal" className="glass-card block bg-gradient-to-r from-emerald-500/5 to-cyan-500/5 border-emerald-500/15">
-          <div className="flex items-center justify-between">
-            <div className="text-xs text-white/60">
-              🎯 目標: <span className="font-bold text-emerald-400">{goal.targetWeight}kg</span>
-            </div>
-            <div className="text-[10px] text-white/40">
-              残り{Math.max(Math.ceil((new Date(goal.targetDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)), 0)}日 →
-            </div>
-          </div>
-        </a>
-      )}
       {/* Quick Weight Modal */}
       {showWeightModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 pb-8 fade-in">
