@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
-import { UtensilsCrossed, Camera, Trash2, Sparkles, Loader2, Edit3, X, Plus, Search } from 'lucide-react';
+import { UtensilsCrossed, Camera, Trash2, Sparkles, Loader2, Edit3, X, Plus, Search, Store } from 'lucide-react';
 import {
   getMealRecordsByDateDB,
   saveMealRecordDB,
@@ -10,6 +10,7 @@ import {
   getUserSettingsDB,
   generateId,
 } from '@/lib/database';
+import { uploadPhoto } from '@/lib/storage-upload';
 import { MEAL_TYPE_LABELS, autoDetectMealType, FOOD_DATABASE } from '@/lib/constants';
 import type { MealRecord, UserSettings, FoodItem } from '@/lib/types';
 
@@ -29,6 +30,9 @@ export default function MealsPage() {
   const [mounted, setMounted] = useState(false);
   const [suggestions, setSuggestions] = useState<FoodItem[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [aiSearching, setAiSearching] = useState(false);
+  const [aiSource, setAiSource] = useState('');
+  const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const loadData = useCallback(async (date: string) => {
@@ -78,6 +82,40 @@ export default function MealsPage() {
     setFat(item.fat.toString());
     setCarbs(item.carbs.toString());
     setShowSuggestions(false);
+    setAiSource('');
+  };
+
+  // AI食品検索（お店名+メニュー名）
+  const handleAiSearch = async () => {
+    if (!name.trim()) return;
+    setAiSearching(true);
+    setShowSuggestions(false);
+    setAiSource('');
+    try {
+      const res = await fetch('/api/search-food', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: name.trim() }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.error) {
+          setAiSource(data.error);
+        } else {
+          setName(data.name || name);
+          setCalories(data.calories?.toString() || '');
+          setProtein(data.protein?.toString() || '');
+          setFat(data.fat?.toString() || '');
+          setCarbs(data.carbs?.toString() || '');
+          setAiSource(data.source || 'AI推定');
+        }
+      } else {
+        setAiSource('検索に失敗しました');
+      }
+    } catch {
+      setAiSource('検索に失敗しました');
+    }
+    setAiSearching(false);
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -119,14 +157,25 @@ export default function MealsPage() {
   const handleSave = async () => {
     const cal = parseFloat(calories);
     if (!name || !cal) return;
+
+    setUploading(true);
+
+    // 写真がある場合はSupabase Storageにアップロード
+    let photoUrl: string | undefined;
+    if (photo) {
+      const url = await uploadPhoto(photo, 'meals');
+      photoUrl = url || undefined;
+    }
+
     const record: MealRecord = {
       id: generateId(), date: selectedDate, mealType, name,
       calories: cal, protein: parseFloat(protein) || 0,
       fat: parseFloat(fat) || 0, carbs: parseFloat(carbs) || 0,
-      photo, createdAt: new Date().toISOString(),
+      photo: photoUrl, createdAt: new Date().toISOString(),
     };
     await saveMealRecordDB(record);
     await loadData(selectedDate);
+    setUploading(false);
     resetForm();
   };
 
@@ -139,6 +188,7 @@ export default function MealsPage() {
     setShowForm(false); setName(''); setCalories('');
     setProtein(''); setFat(''); setCarbs(''); setPhoto(undefined);
     setSuggestions([]); setShowSuggestions(false);
+    setAiSource('');
   };
 
   if (!mounted) return null;
@@ -228,15 +278,40 @@ export default function MealsPage() {
             ))}
           </div>
 
-          {/* メニュー名入力 + サジェスト */}
+          {/* メニュー名入力 + サジェスト + AI検索 */}
           <div className="relative">
             <label className="text-xs text-white/50 mb-1 block">メニュー名</label>
-            <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
-              <input type="text" value={name} onChange={e => handleNameChange(e.target.value)}
-                onFocus={() => name.length >= 1 && suggestions.length > 0 && setShowSuggestions(true)}
-                placeholder="食事名を入力（例: 鶏むね肉）" className="input-field pl-9!" id="input-meal-name" />
+            <div className="relative flex gap-2">
+              <div className="relative flex-1">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+                <input type="text" value={name} onChange={e => handleNameChange(e.target.value)}
+                  onFocus={() => name.length >= 1 && suggestions.length > 0 && setShowSuggestions(true)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAiSearch(); } }}
+                  placeholder="例: マック チーズバーガー" className="input-field pl-9!" id="input-meal-name" />
+              </div>
+              <button
+                onClick={handleAiSearch}
+                disabled={!name.trim() || aiSearching}
+                className="px-3 py-2 rounded-xl bg-linear-to-r from-violet-500/20 to-purple-500/20 border border-violet-500/30 text-violet-300 text-xs font-semibold active:scale-95 transition-all disabled:opacity-30 shrink-0 flex items-center gap-1.5"
+                id="btn-ai-search"
+              >
+                {aiSearching ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <><Store size={14} /><Sparkles size={12} /></>
+                )}
+                <span className="hidden sm:inline">{aiSearching ? '検索中' : 'AI検索'}</span>
+              </button>
             </div>
+
+            {/* AI情報元 */}
+            {aiSource && (
+              <div className="mt-1.5 px-2 py-1.5 rounded-lg bg-violet-500/10 border border-violet-500/15">
+                <p className="text-[10px] text-violet-300 flex items-center gap-1">
+                  <Sparkles size={10} />{aiSource}
+                </p>
+              </div>
+            )}
 
             {/* サジェストドロップダウン */}
             {showSuggestions && suggestions.length > 0 && (
@@ -280,8 +355,10 @@ export default function MealsPage() {
             </div>
           </div>
 
-          <button onClick={handleSave} disabled={!name || !calories} className="w-full btn-primary disabled:opacity-30" id="btn-save-meal">
-            記録する
+          <button onClick={handleSave} disabled={!name || !calories || uploading} className="w-full btn-primary disabled:opacity-30" id="btn-save-meal">
+            {uploading ? (
+              <span className="flex items-center justify-center gap-2"><Loader2 size={16} className="animate-spin" />保存中...</span>
+            ) : '記録する'}
           </button>
         </div>
       )}

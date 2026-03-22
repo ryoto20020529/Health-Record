@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Scale, Plus, Camera, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Scale, Plus, Camera, Trash2, ChevronLeft, ChevronRight, X, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import {
@@ -10,6 +10,7 @@ import {
   deleteWeightRecordDB,
   generateId,
 } from '@/lib/database';
+import { uploadPhoto } from '@/lib/storage-upload';
 import type { WeightRecord } from '@/lib/types';
 
 export default function WeightPage() {
@@ -21,6 +22,7 @@ export default function WeightPage() {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [mounted, setMounted] = useState(false);
   const [viewingPhoto, setViewingPhoto] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const loadRecords = useCallback(async () => {
@@ -44,11 +46,21 @@ export default function WeightPage() {
   const handleSave = async () => {
     const w = parseFloat(weight);
     if (!w || !date) return;
+    setUploading(true);
+
+    // 写真がある場合はSupabase Storageにアップロード
+    let photoUrl: string | undefined;
+    if (photo) {
+      const url = await uploadPhoto(photo, 'weight');
+      photoUrl = url || undefined;
+    }
+
     const record: WeightRecord = {
-      id: generateId(), date, weight: w, photo, createdAt: new Date().toISOString(),
+      id: generateId(), date, weight: w, photo: photoUrl, createdAt: new Date().toISOString(),
     };
     await saveWeightRecordDB(record);
     await loadRecords();
+    setUploading(false);
     setWeight(''); setPhoto(undefined); setShowForm(false);
   };
 
@@ -134,7 +146,11 @@ export default function WeightPage() {
               </button>
             )}
           </div>
-          <button onClick={handleSave} disabled={!weight} className="w-full btn-primary disabled:opacity-30" id="btn-save-weight">記録する</button>
+          <button onClick={handleSave} disabled={!weight || uploading} className="w-full btn-primary disabled:opacity-30" id="btn-save-weight">
+            {uploading ? (
+              <span className="flex items-center justify-center gap-2"><Loader2 size={16} className="animate-spin" />保存中...</span>
+            ) : '記録する'}
+          </button>
         </div>
       )}
 

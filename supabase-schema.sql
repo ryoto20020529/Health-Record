@@ -123,9 +123,19 @@ create table if not exists group_members (
 
 alter table group_members enable row level security;
 
+-- RLSの無限再帰を回避するためのSECURITY DEFINER関数
+create or replace function get_user_group_ids(uid uuid)
+returns setof uuid
+language sql
+security definer
+stable
+as $$
+  select group_id from group_members where user_id = uid;
+$$;
+
 create policy "Members can read group members" on group_members
   for select using (
-    group_id in (select group_id from group_members where user_id = auth.uid())
+    group_id in (select get_user_group_ids(auth.uid()))
   );
 
 create policy "Users can join groups" on group_members

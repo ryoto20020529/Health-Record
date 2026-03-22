@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Flame, TrendingDown, Calendar, Settings, Scale, Plus, Camera, Trash2, X, Target, ArrowRight, Footprints, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Flame, TrendingDown, Calendar, Settings, Scale, Plus, Camera, Trash2, X, Target, ArrowRight, Footprints, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import { useRef } from 'react';
 import Image from 'next/image';
 import { ActivityRing, RingLegend } from '@/components/ActivityRing';
@@ -15,6 +15,7 @@ import {
   generateId,
   getTodayString,
 } from '@/lib/database';
+import { uploadPhoto } from '@/lib/storage-upload';
 import type { UserSettings, GoalPlan } from '@/lib/types';
 
 export default function DashboardPage() {
@@ -34,6 +35,7 @@ export default function DashboardPage() {
   const [todaySteps, setTodaySteps] = useState(0);
   const [showStepInput, setShowStepInput] = useState(false);
   const [stepInput, setStepInput] = useState('');
+  const [uploadingWeight, setUploadingWeight] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,15 +49,24 @@ export default function DashboardPage() {
   const handleSaveWeight = async () => {
     const w = parseFloat(newWeight);
     if (!w) return;
+    setUploadingWeight(true);
+
+    let photoUrl: string | undefined;
+    if (newPhoto) {
+      const url = await uploadPhoto(newPhoto, 'weight');
+      photoUrl = url || undefined;
+    }
+
     const record = {
       id: generateId(),
       date: getTodayString(),
       weight: w,
-      photo: newPhoto,
+      photo: photoUrl,
       createdAt: new Date().toISOString(),
     };
     await saveWeightRecordDB(record);
     await loadData();
+    setUploadingWeight(false);
     setShowWeightModal(false);
     setNewWeight('');
     setNewPhoto(undefined);
@@ -414,8 +425,10 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              <button onClick={handleSaveWeight} disabled={!newWeight} className="w-full btn-primary disabled:opacity-30 mt-2">
-                記録する
+              <button onClick={handleSaveWeight} disabled={!newWeight || uploadingWeight} className="w-full btn-primary disabled:opacity-30 mt-2">
+                {uploadingWeight ? (
+                  <span className="flex items-center justify-center gap-2"><Loader2 size={16} className="animate-spin" />保存中...</span>
+                ) : '記録する'}
               </button>
             </div>
           </div>
