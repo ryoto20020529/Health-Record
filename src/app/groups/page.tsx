@@ -452,30 +452,12 @@ export default function GroupsPage() {
                 {copied ? <><Check size={10} />コピー済</> : <><Copy size={10} />{group.inviteCode}</>}
               </button>
               {/* シェア */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowShareMenu(showShareMenu === group.id ? null : group.id)}
-                  className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400 active:scale-95 transition-all"
-                >
-                  <Share2 size={12} />
-                </button>
-                {showShareMenu === group.id && (
-                  <div className="absolute right-0 top-10 w-44 bg-[#0f1527] border border-white/15 rounded-xl shadow-xl z-30 slide-up overflow-hidden">
-                    <button onClick={() => shareInvite(group, 'native')}
-                      className="w-full text-left px-3 py-3 text-xs text-white/70 hover:bg-white/5 active:bg-white/10 flex items-center gap-2 border-b border-white/5">
-                      <Share2 size={12} className="text-blue-400" />共有...
-                    </button>
-                    <button onClick={() => shareInvite(group, 'line')}
-                      className="w-full text-left px-3 py-3 text-xs text-white/70 hover:bg-white/5 active:bg-white/10 flex items-center gap-2 border-b border-white/5">
-                      <MessageCircle size={12} className="text-green-400" />LINEで送る
-                    </button>
-                    <button onClick={() => shareInvite(group, 'email')}
-                      className="w-full text-left px-3 py-3 text-xs text-white/70 hover:bg-white/5 active:bg-white/10 flex items-center gap-2">
-                      <Mail size={12} className="text-cyan-400" />メールで送る
-                    </button>
-                  </div>
-                )}
-              </div>
+              <button
+                onClick={() => setShowShareMenu(showShareMenu === group.id ? null : group.id)}
+                className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400 active:scale-95 transition-all"
+              >
+                <Share2 size={12} />
+              </button>
             </div>
           </div>
 
@@ -540,10 +522,45 @@ export default function GroupsPage() {
         </div>
       )})}
 
-      {/* シェアメニューの背景オーバーレイ */}
-      {showShareMenu && (
-        <div className="fixed inset-0 z-20" onClick={() => setShowShareMenu(null)} />
-      )}
+      {/* シェアシート（モーダル） */}
+      {showShareMenu && (() => {
+        const shareGroup = groups.find(g => g.id === showShareMenu);
+        if (!shareGroup) return null;
+        return (
+          <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setShowShareMenu(null)}>
+            <div className="fixed inset-0 bg-black/50" />
+            <div
+              className="relative w-full max-w-lg bg-[#131a2e] border-t border-white/10 rounded-t-2xl p-5 pb-8 slide-up"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4" />
+              <h3 className="text-sm font-bold text-white mb-1">「{shareGroup.name}」に招待</h3>
+              <p className="text-[11px] text-white/40 mb-4">招待コード: {shareGroup.inviteCode}</p>
+              <div className="space-y-2">
+                <button onClick={() => shareInvite(shareGroup, 'native')}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white/80 active:scale-[0.98] transition-all">
+                  <div className="w-9 h-9 rounded-full bg-blue-500/20 flex items-center justify-center"><Share2 size={16} className="text-blue-400" /></div>
+                  共有...
+                </button>
+                <button onClick={() => shareInvite(shareGroup, 'line')}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white/80 active:scale-[0.98] transition-all">
+                  <div className="w-9 h-9 rounded-full bg-green-500/20 flex items-center justify-center"><MessageCircle size={16} className="text-green-400" /></div>
+                  LINEで送る
+                </button>
+                <button onClick={() => shareInvite(shareGroup, 'email')}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white/80 active:scale-[0.98] transition-all">
+                  <div className="w-9 h-9 rounded-full bg-cyan-500/20 flex items-center justify-center"><Mail size={16} className="text-cyan-400" /></div>
+                  メールで送る
+                </button>
+              </div>
+              <button onClick={() => setShowShareMenu(null)}
+                className="w-full mt-3 py-3 rounded-xl bg-white/5 text-sm text-white/50 active:scale-[0.98] transition-all">
+                キャンセル
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
