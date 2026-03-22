@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Users, Copy, Plus, X, Crown, Flame, Dumbbell, Check, Share2, MessageCircle, Mail, Shield, Bell } from 'lucide-react';
+import { Users, Copy, Plus, X, Crown, Flame, Dumbbell, Check, Share2, MessageCircle, Mail, Shield, Bell, Trash2, LogOut, Loader2 } from 'lucide-react';
 import {
   getTodayString,
   generateId,
@@ -21,6 +21,7 @@ interface Group {
   id: string;
   name: string;
   inviteCode: string;
+  ownerId: string;
   members: GroupMember[];
 }
 
@@ -42,6 +43,9 @@ export default function GroupsPage() {
   const [error, setError] = useState('');
   const [showShareMenu, setShowShareMenu] = useState<string | null>(null);
   const [activityFeed, setActivityFeed] = useState<ActivityFeedItem[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const supabase = createClient();
 
@@ -49,13 +53,17 @@ export default function GroupsPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      setCurrentUserId(user.id);
 
       const { data: memberships } = await supabase
         .from('group_members')
         .select('group_id')
         .eq('user_id', user.id);
 
-      if (!memberships?.length) return;
+      if (!memberships?.length) {
+        setGroups([]);
+        return;
+      }
 
       const groupIds = memberships.map((m: { group_id: string }) => m.group_id);
       const { data: groupsData } = await supabase
@@ -103,7 +111,6 @@ export default function GroupsPage() {
             isOwner: m.is_owner,
           });
 
-          // 運動完了フィードを生成（プライバシー保護: カロリーと種目のみ、体重・目標は非公開）
           if (totalExMin > 0 && m.user_id !== user.id) {
             const exerciseNames = (exercises || []).map((e: { name: string }) => e.name);
             const uniqueNames = [...new Set(exerciseNames)].join('・');
@@ -120,6 +127,7 @@ export default function GroupsPage() {
           id: g.id,
           name: g.name,
           inviteCode: g.invite_code,
+          ownerId: g.owner_id,
           members: memberInfos,
         });
       }
@@ -242,13 +250,78 @@ export default function GroupsPage() {
     }
   };
 
+  // グループ削除（オーナーのみ）
+  const handleDeleteGroup = async (groupId: string) => {
+    setDeleting(true);
+    setError('');
+    try {
+      // 1. メンバーを全削除
+      const { error: membersError } = await supabase
+        .from('group_members')
+        .delete()
+        .eq('group_id', groupId);
+
+      if (membersError) {
+        console.error('Delete members error:', membersError);
+        setError(`メンバー削除に失敗しました: ${membersError.message}`);
+        setDeleting(false);
+        return;
+      }
+
+      // 2. グループを削除
+      const { error: groupError } = await supabase
+        .from('groups')
+        .delete()
+        .eq('id', groupId);
+
+      if (groupError) {
+        console.error('Delete group error:', groupError);
+        setError(`グループ削除に失敗しました: ${groupError.message}`);
+        setDeleting(false);
+        return;
+      }
+
+      setConfirmDelete(null);
+      await loadGroups();
+    } catch (err) {
+      console.error('Delete group error:', err);
+      setError('グループ削除に失敗しました');
+    }
+    setDeleting(false);
+  };
+
+  // グループ脱退（メンバーのみ）
+  const handleLeaveGroup = async (groupId: string) => {
+    setError('');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error: leaveError } = await supabase
+        .from('group_members')
+        .delete()
+        .eq('group_id', groupId)
+        .eq('user_id', user.id);
+
+      if (leaveError) {
+        console.error('Leave group error:', leaveError);
+        setError(`脱退に失敗しました: ${leaveError.message}`);
+        return;
+      }
+
+      await loadGroups();
+    } catch (err) {
+      console.error('Leave group error:', err);
+      setError('脱退に失敗しました');
+    }
+  };
+
   const copyCode = (code: string) => {
     navigator.clipboard.writeText(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // シェア機能
   const shareInvite = async (group: Group, method: 'native' | 'line' | 'email') => {
     const inviteUrl = `${window.location.origin}/groups?join=${group.inviteCode}`;
     const message = `「${group.name}」グループに参加しよう！\n招待コード: ${group.inviteCode}\n${inviteUrl}`;
@@ -276,7 +349,7 @@ export default function GroupsPage() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-5 fade-in">
+    <div className="space-y-4 fade-in">
       <div className="flex items-center justify-between pt-3">
         <div>
           <h1 className="text-xl font-bold gradient-text flex items-center gap-2"><Users size={20} />グループ</h1>
@@ -284,9 +357,9 @@ export default function GroupsPage() {
         </div>
         <div className="flex gap-2">
           <button onClick={() => setShowJoin(!showJoin)}
-            className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white/60 active:scale-95">参加</button>
+            className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white/60 active:scale-95 min-h-[40px]">参加</button>
           <button onClick={() => setShowCreate(!showCreate)}
-            className="px-3 py-2 rounded-xl bg-linear-to-r from-emerald-500 to-cyan-500 text-xs text-white font-semibold active:scale-95">
+            className="px-3 py-2 rounded-xl bg-linear-to-r from-emerald-500 to-cyan-500 text-xs text-white font-semibold active:scale-95 min-h-[40px]">
             <Plus size={14} className="inline mr-1" />作成
           </button>
         </div>
@@ -307,7 +380,7 @@ export default function GroupsPage() {
         <div className="glass-card slide-up space-y-3">
           <div className="flex justify-between items-center">
             <h3 className="text-sm font-semibold text-white/70">新しいグループ</h3>
-            <button onClick={() => setShowCreate(false)}><X size={16} className="text-white/40" /></button>
+            <button onClick={() => setShowCreate(false)} className="p-2 rounded-lg active:bg-white/10"><X size={16} className="text-white/40" /></button>
           </div>
           <input type="text" value={groupName} onChange={e => setGroupName(e.target.value)}
             placeholder="グループ名" className="input-field text-sm" id="input-group-name" />
@@ -321,7 +394,7 @@ export default function GroupsPage() {
         <div className="glass-card slide-up space-y-3">
           <div className="flex justify-between items-center">
             <h3 className="text-sm font-semibold text-white/70">招待コードで参加</h3>
-            <button onClick={() => setShowJoin(false)}><X size={16} className="text-white/40" /></button>
+            <button onClick={() => setShowJoin(false)} className="p-2 rounded-lg active:bg-white/10"><X size={16} className="text-white/40" /></button>
           </div>
           <input type="text" value={joinCode} onChange={e => setJoinCode(e.target.value)}
             placeholder="招待コード（例: ABC123）" className="input-field text-sm uppercase" id="input-join-code" />
@@ -343,8 +416,8 @@ export default function GroupsPage() {
                 <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 mt-0.5">
                   <Dumbbell size={10} className="text-emerald-400" />
                 </div>
-                <div>
-                  <div className="text-xs text-white/80">
+                <div className="min-w-0">
+                  <div className="text-xs text-white/80 break-words">
                     <span className="font-semibold text-emerald-400">{feed.userName}</span>が{feed.message}
                   </div>
                 </div>
@@ -363,43 +436,41 @@ export default function GroupsPage() {
           <p className="text-white/40 text-sm">グループに参加していません</p>
           <p className="text-white/25 text-xs mt-1">グループを作成するか、招待コードで参加しましょう</p>
         </div>
-      ) : groups.map(group => (
+      ) : groups.map(group => {
+        const isOwner = currentUserId === group.ownerId;
+        return (
         <div key={group.id} className="glass-card space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Users size={14} className="text-emerald-400" />{group.name}
+          {/* ヘッダー */}
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2 min-w-0 truncate">
+              <Users size={14} className="text-emerald-400 shrink-0" /><span className="truncate">{group.name}</span>
             </h3>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 shrink-0">
+              {/* 招待コードコピー */}
               <button onClick={() => copyCode(group.inviteCode)}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 text-[10px] text-white/40 active:scale-95">
-                {copied ? <><Check size={10} />コピー済み</> : <><Copy size={10} />{group.inviteCode}</>}
+                className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-white/5 text-[10px] text-white/40 active:scale-95 min-h-[32px]">
+                {copied ? <><Check size={10} />コピー済</> : <><Copy size={10} />{group.inviteCode}</>}
               </button>
-              {/* シェアボタン */}
+              {/* シェア */}
               <div className="relative">
                 <button
                   onClick={() => setShowShareMenu(showShareMenu === group.id ? null : group.id)}
-                  className="w-7 h-7 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400 active:scale-95 transition-all"
+                  className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400 active:scale-95 transition-all"
                 >
                   <Share2 size={12} />
                 </button>
                 {showShareMenu === group.id && (
-                  <div className="absolute right-0 top-9 w-44 bg-[#0f1527] border border-white/15 rounded-xl shadow-xl z-30 slide-up overflow-hidden">
-                    <button
-                      onClick={() => shareInvite(group, 'native')}
-                      className="w-full text-left px-3 py-2.5 text-xs text-white/70 hover:bg-white/5 flex items-center gap-2 border-b border-white/5"
-                    >
+                  <div className="absolute right-0 top-10 w-44 bg-[#0f1527] border border-white/15 rounded-xl shadow-xl z-30 slide-up overflow-hidden">
+                    <button onClick={() => shareInvite(group, 'native')}
+                      className="w-full text-left px-3 py-3 text-xs text-white/70 hover:bg-white/5 active:bg-white/10 flex items-center gap-2 border-b border-white/5">
                       <Share2 size={12} className="text-blue-400" />共有...
                     </button>
-                    <button
-                      onClick={() => shareInvite(group, 'line')}
-                      className="w-full text-left px-3 py-2.5 text-xs text-white/70 hover:bg-white/5 flex items-center gap-2 border-b border-white/5"
-                    >
+                    <button onClick={() => shareInvite(group, 'line')}
+                      className="w-full text-left px-3 py-3 text-xs text-white/70 hover:bg-white/5 active:bg-white/10 flex items-center gap-2 border-b border-white/5">
                       <MessageCircle size={12} className="text-green-400" />LINEで送る
                     </button>
-                    <button
-                      onClick={() => shareInvite(group, 'email')}
-                      className="w-full text-left px-3 py-2.5 text-xs text-white/70 hover:bg-white/5 flex items-center gap-2"
-                    >
+                    <button onClick={() => shareInvite(group, 'email')}
+                      className="w-full text-left px-3 py-3 text-xs text-white/70 hover:bg-white/5 active:bg-white/10 flex items-center gap-2">
                       <Mail size={12} className="text-cyan-400" />メールで送る
                     </button>
                   </div>
@@ -408,26 +479,26 @@ export default function GroupsPage() {
             </div>
           </div>
 
-          {/* メンバー進捗 (プライバシー保護: カロリーと運動時間のみ表示、体重・目標は非公開) */}
+          {/* メンバー進捗 */}
           <div className="space-y-1.5">
             {group.members
               .sort((a, b) => (b.todayCalOut - b.todayCalIn) - (a.todayCalOut - a.todayCalIn))
               .map((member, i) => (
-              <div key={member.userId} className="flex items-center justify-between bg-white/5 rounded-xl px-3 py-2.5">
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs font-bold ${i === 0 ? 'text-yellow-400' : 'text-white/30'}`}>
+              <div key={member.userId} className="flex items-center justify-between bg-white/5 rounded-xl px-3 py-2.5 gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className={`text-xs font-bold shrink-0 ${i === 0 ? 'text-yellow-400' : 'text-white/30'}`}>
                     {i === 0 ? '👑' : `${i + 1}`}
                   </span>
-                  <div>
-                    <div className="text-xs font-semibold flex items-center gap-1">
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold flex items-center gap-1 truncate">
                       {member.email}
-                      {member.isOwner && <Crown size={10} className="text-yellow-400" />}
+                      {member.isOwner && <Crown size={10} className="text-yellow-400 shrink-0" />}
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 text-[10px]">
+                <div className="flex items-center gap-2 text-[10px] shrink-0">
                   <span className="text-orange-400 flex items-center gap-0.5" title="摂取カロリー">
-                    <Flame size={10} />{member.todayCalIn}kcal
+                    <Flame size={10} />{member.todayCalIn}<span className="hidden sm:inline">kcal</span>
                   </span>
                   <span className="text-cyan-400 flex items-center gap-0.5" title="運動時間">
                     <Dumbbell size={10} />{member.todayExMin}分
@@ -436,8 +507,43 @@ export default function GroupsPage() {
               </div>
             ))}
           </div>
+
+          {/* 削除/脱退ボタン */}
+          <div className="pt-1 border-t border-white/5">
+            {isOwner ? (
+              confirmDelete === group.id ? (
+                <div className="flex items-center gap-2 slide-up">
+                  <p className="text-[11px] text-red-400 flex-1">本当に削除しますか？</p>
+                  <button onClick={() => setConfirmDelete(null)}
+                    className="px-3 py-1.5 rounded-lg bg-white/5 text-[11px] text-white/50 active:scale-95 min-h-[32px]">
+                    キャンセル
+                  </button>
+                  <button onClick={() => handleDeleteGroup(group.id)} disabled={deleting}
+                    className="px-3 py-1.5 rounded-lg bg-red-500/20 border border-red-500/30 text-[11px] text-red-400 font-semibold active:scale-95 min-h-[32px] flex items-center gap-1">
+                    {deleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                    削除
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => setConfirmDelete(group.id)}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] text-red-400/60 hover:text-red-400 hover:bg-red-500/10 active:scale-[0.98] transition-all min-h-[36px]">
+                  <Trash2 size={12} />グループを削除
+                </button>
+              )
+            ) : (
+              <button onClick={() => handleLeaveGroup(group.id)}
+                className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] text-white/30 hover:text-white/50 hover:bg-white/5 active:scale-[0.98] transition-all min-h-[36px]">
+                <LogOut size={12} />グループを脱退
+              </button>
+            )}
+          </div>
         </div>
-      ))}
+      )})}
+
+      {/* 削除確認オーバーレイ（共有メニューを閉じるため） */}
+      {(showShareMenu || confirmDelete) && (
+        <div className="fixed inset-0 z-20" onClick={() => { setShowShareMenu(null); setConfirmDelete(null); }} />
+      )}
     </div>
   );
 }
