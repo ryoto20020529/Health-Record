@@ -143,25 +143,41 @@ export default function GroupsPage() {
 
   const handleCreate = async () => {
     if (!groupName.trim()) return;
+    setError('');
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setError('ログインが必要です');
+        return;
+      }
 
       const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
       const groupId = generateId();
 
-      await supabase.from('groups').insert({
+      const { error: groupError } = await supabase.from('groups').insert({
         id: groupId,
         name: groupName,
         invite_code: inviteCode,
         owner_id: user.id,
       });
 
-      await supabase.from('group_members').insert({
+      if (groupError) {
+        console.error('Group insert error:', groupError);
+        setError(`グループ作成に失敗しました: ${groupError.message}`);
+        return;
+      }
+
+      const { error: memberError } = await supabase.from('group_members').insert({
         group_id: groupId,
         user_id: user.id,
         is_owner: true,
       });
+
+      if (memberError) {
+        console.error('Member insert error:', memberError);
+        setError(`メンバー登録に失敗しました: ${memberError.message}`);
+        return;
+      }
 
       setGroupName('');
       setShowCreate(false);
@@ -177,15 +193,18 @@ export default function GroupsPage() {
     setError('');
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setError('ログインが必要です');
+        return;
+      }
 
-      const { data: group } = await supabase
+      const { data: group, error: groupError } = await supabase
         .from('groups')
         .select('id')
         .eq('invite_code', joinCode.toUpperCase())
         .single();
 
-      if (!group) {
+      if (groupError || !group) {
         setError('招待コードが見つかりません');
         return;
       }
@@ -202,11 +221,17 @@ export default function GroupsPage() {
         return;
       }
 
-      await supabase.from('group_members').insert({
+      const { error: joinError } = await supabase.from('group_members').insert({
         group_id: group.id,
         user_id: user.id,
         is_owner: false,
       });
+
+      if (joinError) {
+        console.error('Join group error:', joinError);
+        setError(`参加に失敗しました: ${joinError.message}`);
+        return;
+      }
 
       setJoinCode('');
       setShowJoin(false);
