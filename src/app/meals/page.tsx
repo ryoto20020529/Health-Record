@@ -110,7 +110,12 @@ export default function MealsPage() {
           setAiSource(data.source || 'AI推定');
         }
       } else {
-        setAiSource('検索に失敗しました');
+        try {
+          const errData = await res.json();
+          setAiSource(errData.error || `検索に失敗しました (${res.status})`);
+        } catch {
+          setAiSource(`検索に失敗しました (${res.status})`);
+        }
       }
     } catch {
       setAiSource('検索に失敗しました');
