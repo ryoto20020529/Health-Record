@@ -540,9 +540,9 @@ export default function GroupsPage() {
         </div>
       )})}
 
-      {/* 削除確認オーバーレイ（共有メニューを閉じるため） */}
-      {(showShareMenu || confirmDelete) && (
-        <div className="fixed inset-0 z-20" onClick={() => { setShowShareMenu(null); setConfirmDelete(null); }} />
+      {/* シェアメニューの背景オーバーレイ */}
+      {showShareMenu && (
+        <div className="fixed inset-0 z-20" onClick={() => setShowShareMenu(null)} />
       )}
     </div>
   );
