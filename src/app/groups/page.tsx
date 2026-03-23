@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Users, Copy, Plus, X, Crown, Flame, Dumbbell, Check, Share2, MessageCircle, Mail, Shield, Bell, Trash2, LogOut, Loader2 } from 'lucide-react';
+import { Users, Copy, Plus, X, Crown, Flame, Dumbbell, Check, Share2, MessageCircle, Mail, Shield, Bell, Trash2, LogOut, Loader2, Pencil } from 'lucide-react';
 import {
   getTodayString,
   generateId,
@@ -48,6 +48,9 @@ export default function GroupsPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [updatingName, setUpdatingName] = useState(false);
 
   const supabase = createClient();
 
@@ -303,6 +306,34 @@ export default function GroupsPage() {
     setDeleting(false);
   };
 
+  // 自分の名前の変更
+  const handleUpdateName = async (groupId: string) => {
+    if (!editName.trim() || !currentUserId) return;
+    setUpdatingName(true);
+    setError('');
+    try {
+      const { error: updateError } = await supabase
+        .from('group_members')
+        .update({ display_name: editName.trim() })
+        .eq('group_id', groupId)
+        .eq('user_id', currentUserId);
+
+      if (updateError) {
+        console.error('Update name error:', updateError);
+        setError(`名前の更新に失敗しました: ${updateError.message}`);
+        setUpdatingName(false);
+        return;
+      }
+
+      setEditingGroupId(null);
+      await loadGroups();
+    } catch (err) {
+      console.error('Update name error:', err);
+      setError('名前の更新に失敗しました');
+    }
+    setUpdatingName(false);
+  };
+
   // グループ脱退（メンバーのみ）
   const handleLeaveGroup = async (groupId: string) => {
     setError('');
@@ -489,9 +520,35 @@ export default function GroupsPage() {
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${i === 0 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-white/10 text-white/40'}`}>
                       {i === 0 ? '👑' : i + 1}
                     </div>
-                    <span className="text-sm font-semibold truncate">
-                      {member.displayName}
-                      {member.isOwner && <Crown size={10} className="text-yellow-400 inline ml-1" />}
+                    <span className="text-sm font-semibold truncate flex items-center gap-1">
+                      {editingGroupId === group.id && member.userId === currentUserId ? (
+                        <div className="flex items-center gap-1">
+                          <input type="text" value={editName} onChange={e => setEditName(e.target.value)}
+                            className="bg-black/20 border border-white/20 rounded px-2 py-1 text-xs w-28 text-white focus:outline-hidden"
+                            autoFocus
+                            placeholder="ニックネーム"
+                          />
+                          <button onClick={() => handleUpdateName(group.id)} disabled={updatingName || !editName.trim()}
+                            className="text-emerald-400 bg-emerald-500/20 rounded p-1.5 active:scale-95 disabled:opacity-50">
+                            {updatingName ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                          </button>
+                          <button onClick={() => setEditingGroupId(null)} disabled={updatingName}
+                            className="text-white/40 bg-white/10 rounded p-1.5 active:scale-95 disabled:opacity-50">
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          {member.displayName}
+                          {member.isOwner && <Crown size={10} className="text-yellow-400 shrink-0" />}
+                          {member.userId === currentUserId && (
+                            <button onClick={() => { setEditingGroupId(group.id); setEditName(member.displayName); }}
+                              className="text-white/30 hover:text-white/60 ml-0.5 p-1 rounded-md hover:bg-white/5 active:scale-95 shrink-0 transition-all">
+                              <Pencil size={11} />
+                            </button>
+                          )}
+                        </>
+                      )}
                     </span>
                   </div>
                   {member.todayWeight && (
