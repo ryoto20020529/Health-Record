@@ -10,10 +10,11 @@ import { createClient } from '@/lib/supabase';
 
 interface GroupMember {
   userId: string;
-  email: string;
+  displayName: string;
   todayCalIn: number;
   todayCalOut: number;
   todayExMin: number;
+  todayWeight?: number;
   isOwner: boolean;
 }
 
@@ -38,6 +39,7 @@ export default function GroupsPage() {
   const [showJoin, setShowJoin] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [joinCode, setJoinCode] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [copied, setCopied] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState('');
@@ -79,7 +81,7 @@ export default function GroupsPage() {
       for (const g of groupsData) {
         const { data: members } = await supabase
           .from('group_members')
-          .select('user_id, is_owner')
+          .select('user_id, is_owner, display_name')
           .eq('group_id', g.id);
 
         const memberInfos: GroupMember[] = [];
@@ -100,14 +102,23 @@ export default function GroupsPage() {
           const totalCalOut = (exercises || []).reduce((s: number, r: { calories_burned: number }) => s + r.calories_burned, 0);
           const totalExMin = (exercises || []).reduce((s: number, r: { duration: number }) => s + r.duration, 0);
 
-          const memberName = m.user_id === user.id ? 'あなた' : `メンバー${memberInfos.length + 1}`;
+          const memberName = m.user_id === user.id ? 'あなた' : (m.display_name || `メンバー${memberInfos.length + 1}`);
+
+          // 最新の体重を取得
+          const { data: weights } = await supabase
+            .from('weight_records')
+            .select('weight')
+            .eq('user_id', m.user_id)
+            .order('date', { ascending: false })
+            .limit(1);
 
           memberInfos.push({
             userId: m.user_id,
-            email: memberName,
+            displayName: memberName,
             todayCalIn: totalCalIn,
             todayCalOut: totalCalOut,
             todayExMin: totalExMin,
+            todayWeight: weights?.[0]?.weight,
             isOwner: m.is_owner,
           });
 
@@ -150,7 +161,7 @@ export default function GroupsPage() {
   }, [loadGroups]);
 
   const handleCreate = async () => {
-    if (!groupName.trim()) return;
+    if (!groupName.trim() || !displayName.trim()) return;
     setError('');
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -179,6 +190,7 @@ export default function GroupsPage() {
         group_id: groupId,
         user_id: user.id,
         is_owner: true,
+        display_name: displayName.trim(),
       });
 
       if (memberError) {
@@ -187,7 +199,7 @@ export default function GroupsPage() {
         return;
       }
 
-      setGroupName('');
+      setGroupName(''); setDisplayName('');
       setShowCreate(false);
       await loadGroups();
     } catch (err) {
@@ -233,6 +245,7 @@ export default function GroupsPage() {
         group_id: group.id,
         user_id: user.id,
         is_owner: false,
+        display_name: displayName.trim() || 'メンバー',
       });
 
       if (joinError) {
@@ -241,7 +254,7 @@ export default function GroupsPage() {
         return;
       }
 
-      setJoinCode('');
+      setJoinCode(''); setDisplayName('');
       setShowJoin(false);
       await loadGroups();
     } catch (err) {
@@ -384,7 +397,9 @@ export default function GroupsPage() {
           </div>
           <input type="text" value={groupName} onChange={e => setGroupName(e.target.value)}
             placeholder="グループ名" className="input-field text-sm" id="input-group-name" />
-          <button onClick={handleCreate} disabled={!groupName.trim()}
+          <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)}
+            placeholder="あなたのニックネーム" className="input-field text-sm" id="input-display-name" />
+          <button onClick={handleCreate} disabled={!groupName.trim() || !displayName.trim()}
             className="w-full btn-primary text-sm disabled:opacity-30" id="btn-create-group">作成する</button>
         </div>
       )}
@@ -398,7 +413,9 @@ export default function GroupsPage() {
           </div>
           <input type="text" value={joinCode} onChange={e => setJoinCode(e.target.value)}
             placeholder="招待コード（例: ABC123）" className="input-field text-sm uppercase" id="input-join-code" />
-          <button onClick={handleJoin} disabled={!joinCode.trim()}
+          <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)}
+            placeholder="あなたのニックネーム" className="input-field text-sm" id="input-join-display-name" />
+          <button onClick={handleJoin} disabled={!joinCode.trim() || !displayName.trim()}
             className="w-full btn-primary text-sm disabled:opacity-30" id="btn-join-group">参加する</button>
         </div>
       )}
@@ -417,7 +434,7 @@ export default function GroupsPage() {
                   <Dumbbell size={10} className="text-emerald-400" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-xs text-white/80 break-words">
+                  <div className="text-xs text-white/80 wrap-break-word">
                     <span className="font-semibold text-emerald-400">{feed.userName}</span>が{feed.message}
                   </div>
                 </div>
@@ -462,29 +479,49 @@ export default function GroupsPage() {
           </div>
 
           {/* メンバー進捗 */}
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {group.members
               .sort((a, b) => (b.todayCalOut - b.todayCalIn) - (a.todayCalOut - a.todayCalIn))
               .map((member, i) => (
-              <div key={member.userId} className="flex items-center justify-between bg-white/5 rounded-xl px-3 py-2.5 gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className={`text-xs font-bold shrink-0 ${i === 0 ? 'text-yellow-400' : 'text-white/30'}`}>
-                    {i === 0 ? '👑' : `${i + 1}`}
-                  </span>
-                  <div className="min-w-0">
-                    <div className="text-xs font-semibold flex items-center gap-1 truncate">
-                      {member.email}
-                      {member.isOwner && <Crown size={10} className="text-yellow-400 shrink-0" />}
+              <div key={member.userId} className="bg-white/5 rounded-xl px-3 py-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${i === 0 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-white/10 text-white/40'}`}>
+                      {i === 0 ? '👑' : i + 1}
                     </div>
+                    <span className="text-sm font-semibold truncate">
+                      {member.displayName}
+                      {member.isOwner && <Crown size={10} className="text-yellow-400 inline ml-1" />}
+                    </span>
                   </div>
+                  {member.todayWeight && (
+                    <span className="text-[11px] text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full shrink-0">
+                      {member.todayWeight}kg
+                    </span>
+                  )}
                 </div>
-                <div className="flex items-center gap-2 text-[10px] shrink-0">
-                  <span className="text-orange-400 flex items-center gap-0.5" title="摂取カロリー">
-                    <Flame size={10} />{member.todayCalIn}<span className="hidden sm:inline">kcal</span>
-                  </span>
-                  <span className="text-cyan-400 flex items-center gap-0.5" title="運動時間">
-                    <Dumbbell size={10} />{member.todayExMin}分
-                  </span>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="text-center bg-orange-500/5 rounded-lg py-1.5">
+                    <div className="flex items-center justify-center gap-0.5 text-orange-400">
+                      <Flame size={11} />
+                      <span className="text-xs font-bold">{member.todayCalIn}</span>
+                    </div>
+                    <p className="text-[9px] text-white/30 mt-0.5">kcal摂取</p>
+                  </div>
+                  <div className="text-center bg-green-500/5 rounded-lg py-1.5">
+                    <div className="flex items-center justify-center gap-0.5 text-green-400">
+                      <Flame size={11} />
+                      <span className="text-xs font-bold">{member.todayCalOut}</span>
+                    </div>
+                    <p className="text-[9px] text-white/30 mt-0.5">kcal消費</p>
+                  </div>
+                  <div className="text-center bg-cyan-500/5 rounded-lg py-1.5">
+                    <div className="flex items-center justify-center gap-0.5 text-cyan-400">
+                      <Dumbbell size={11} />
+                      <span className="text-xs font-bold">{member.todayExMin}</span>
+                    </div>
+                    <p className="text-[9px] text-white/30 mt-0.5">分運動</p>
+                  </div>
                 </div>
               </div>
             ))}
