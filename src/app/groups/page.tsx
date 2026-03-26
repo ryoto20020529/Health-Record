@@ -312,11 +312,12 @@ export default function GroupsPage() {
     setUpdatingName(true);
     setError('');
     try {
-      const { error: updateError } = await supabase
+      const { data, error: updateError } = await supabase
         .from('group_members')
         .update({ display_name: editName.trim() })
         .eq('group_id', groupId)
-        .eq('user_id', currentUserId);
+        .eq('user_id', currentUserId)
+        .select();
 
       if (updateError) {
         console.error('Update name error:', updateError);
@@ -325,8 +326,28 @@ export default function GroupsPage() {
         return;
       }
 
+      if (!data || data.length === 0) {
+        setError('名前の更新がブロックされました。権限エラーの可能性があります。');
+        setUpdatingName(false);
+        return;
+      }
+
+      const updatedName = data[0].display_name;
+      setGroups(prev => prev.map(g => {
+        if (g.id === groupId) {
+          return {
+            ...g,
+            members: g.members.map(m =>
+              m.userId === currentUserId ? { ...m, displayName: updatedName } : m
+            )
+          };
+        }
+        return g;
+      }));
+
       setEditingGroupId(null);
-      await loadGroups();
+      // バックグラウンドで最新状態を取得し直す
+      loadGroups();
     } catch (err) {
       console.error('Update name error:', err);
       setError('名前の更新に失敗しました');
