@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
             },
           ],
           max_tokens: 400,
+          response_format: { type: 'json_object' },
         }),
       });
 
@@ -74,14 +75,14 @@ export async function POST(request: NextRequest) {
         const content = data.choices?.[0]?.message?.content;
         console.log('[analyze-meal] OpenAI content:', content);
         if (content) {
-          const jsonMatch = content.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
+          try {
+            const parsed = JSON.parse(content);
             console.log('[analyze-meal] Successfully parsed OpenAI response');
-            return NextResponse.json(JSON.parse(jsonMatch[0]));
-          } else {
-            console.error('[analyze-meal] Failed to extract JSON from content:', content);
+            return NextResponse.json(parsed);
+          } catch (parseErr) {
+            console.error('[analyze-meal] JSON.parse failed. content was:', content, 'error:', parseErr);
             return NextResponse.json(
-              { error: `OpenAI レスポンスのJSON抽出失敗: ${content}` },
+              { error: `OpenAI レスポンスのJSON解析失敗: ${parseErr}` },
               { status: 500 }
             );
           }
@@ -136,8 +137,17 @@ export async function POST(request: NextRequest) {
         if (content) {
           const jsonMatch = content.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
-            console.log('[analyze-meal] Successfully parsed Gemini response');
-            return NextResponse.json(JSON.parse(jsonMatch[0]));
+            try {
+              const parsed = JSON.parse(jsonMatch[0]);
+              console.log('[analyze-meal] Successfully parsed Gemini response');
+              return NextResponse.json(parsed);
+            } catch (parseErr) {
+              console.error('[analyze-meal] Gemini JSON.parse failed. content was:', content, 'error:', parseErr);
+              return NextResponse.json(
+                { error: `Gemini レスポンスのJSON解析失敗: ${parseErr}` },
+                { status: 500 }
+              );
+            }
           } else {
             console.error('[analyze-meal] Failed to extract JSON from Gemini content:', content);
             return NextResponse.json(
