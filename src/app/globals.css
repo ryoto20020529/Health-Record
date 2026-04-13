@@ -171,10 +171,12 @@ body {
 /* iOS input fix */
 input[type="date"] {
   -webkit-appearance: none;
+  appearance: none;
   color-scheme: dark;
 }
 
 select {
   -webkit-appearance: none;
+  appearance: none;
   color-scheme: dark;
 }
