@@ -41,8 +41,10 @@ export async function POST(request: NextRequest) {
     }
 
     const apiKey = process.env.OPENAI_API_KEY;
+    console.log('[analyze-meal] OPENAI_API_KEY:', apiKey ? `set (${apiKey.slice(0, 8)}...)` : 'NOT SET');
 
     if (apiKey) {
+      console.log('[analyze-meal] Calling OpenAI API...');
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -65,21 +67,39 @@ export async function POST(request: NextRequest) {
         }),
       });
 
+      console.log('[analyze-meal] OpenAI response status:', response.status);
+
       if (response.ok) {
         const data = await response.json();
         const content = data.choices?.[0]?.message?.content;
+        console.log('[analyze-meal] OpenAI content:', content);
         if (content) {
           const jsonMatch = content.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
+            console.log('[analyze-meal] Successfully parsed OpenAI response');
             return NextResponse.json(JSON.parse(jsonMatch[0]));
+          } else {
+            console.error('[analyze-meal] Failed to extract JSON from content:', content);
           }
+        } else {
+          console.error('[analyze-meal] No content in OpenAI response:', JSON.stringify(data));
         }
+      } else {
+        const errorBody = await response.text();
+        console.error(`[analyze-meal] OpenAI API error ${response.status}:`, errorBody);
+        return NextResponse.json(
+          { error: `OpenAI API エラー (${response.status}): ${errorBody}` },
+          { status: response.status }
+        );
       }
     }
 
     // Gemini
     const geminiKey = process.env.GEMINI_API_KEY;
+    console.log('[analyze-meal] GEMINI_API_KEY:', geminiKey ? `set (${geminiKey.slice(0, 8)}...)` : 'NOT SET');
+
     if (geminiKey) {
+      console.log('[analyze-meal] Calling Gemini API...');
       const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
       const mimeType = image.match(/^data:(image\/\w+);base64,/)?.[1] || 'image/jpeg';
 
@@ -99,26 +119,42 @@ export async function POST(request: NextRequest) {
         }
       );
 
+      console.log('[analyze-meal] Gemini response status:', response.status);
+
       if (response.ok) {
         const data = await response.json();
         const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        console.log('[analyze-meal] Gemini content:', content);
         if (content) {
           const jsonMatch = content.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
+            console.log('[analyze-meal] Successfully parsed Gemini response');
             return NextResponse.json(JSON.parse(jsonMatch[0]));
+          } else {
+            console.error('[analyze-meal] Failed to extract JSON from Gemini content:', content);
           }
+        } else {
+          console.error('[analyze-meal] No content in Gemini response:', JSON.stringify(data));
         }
+      } else {
+        const errorBody = await response.text();
+        console.error(`[analyze-meal] Gemini API error ${response.status}:`, errorBody);
+        return NextResponse.json(
+          { error: `Gemini API エラー (${response.status}): ${errorBody}` },
+          { status: response.status }
+        );
       }
     }
 
-    // デモ値
+    // APIキーなし → デモ値
+    console.warn('[analyze-meal] No valid API key found, returning demo data');
     return NextResponse.json({
       name: 'AI解析（デモ）',
       calories: 450, protein: 25, fat: 15, carbs: 50,
       feedback: 'APIキーを設定すると本格的な分析ができます',
     });
   } catch (error) {
-    console.error('Meal analysis error:', error);
+    console.error('[analyze-meal] Unexpected error:', error);
     return NextResponse.json({ error: '解析に失敗しました' }, { status: 500 });
   }
 }
