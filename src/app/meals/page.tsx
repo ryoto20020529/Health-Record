@@ -32,6 +32,7 @@ export default function MealsPage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [aiSearching, setAiSearching] = useState(false);
   const [aiSource, setAiSource] = useState('');
+  const [analyzeError, setAnalyzeError] = useState('');
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -137,23 +138,27 @@ export default function MealsPage() {
 
   const analyzePhoto = async (imageData: string) => {
     setAnalyzing(true);
+    setAnalyzeError('');
     try {
       const res = await fetch('/api/analyze-meal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: imageData }),
       });
+      const data = await res.json();
       if (res.ok) {
-        const data = await res.json();
         setName(data.name || '食事');
         setCalories(data.calories?.toString() || '');
         setProtein(data.protein?.toString() || '');
         setFat(data.fat?.toString() || '');
         setCarbs(data.carbs?.toString() || '');
+      } else {
+        console.error('[analyzePhoto] API error:', data);
+        setAnalyzeError(data.error || `AI解析エラー (${res.status})`);
       }
-    } catch {
-      setName('食事');
-      setCalories('400'); setProtein('20'); setFat('15'); setCarbs('45');
+    } catch (e) {
+      console.error('[analyzePhoto] Fetch error:', e);
+      setAnalyzeError(`通信エラー: ${e}`);
     }
     setAnalyzing(false);
     setShowForm(true);
@@ -193,7 +198,7 @@ export default function MealsPage() {
     setShowForm(false); setName(''); setCalories('');
     setProtein(''); setFat(''); setCarbs(''); setPhoto(undefined);
     setSuggestions([]); setShowSuggestions(false);
-    setAiSource('');
+    setAiSource(''); setAnalyzeError('');
   };
 
   if (!mounted) return null;
@@ -269,6 +274,13 @@ export default function MealsPage() {
           {photo && (
             <div className="relative rounded-xl overflow-hidden w-full h-36">
               <Image src={photo} alt="食事" fill className="object-cover" />
+            </div>
+          )}
+
+          {analyzeError && (
+            <div className="px-3 py-2.5 rounded-xl bg-red-500/10 border border-red-500/25">
+              <p className="text-xs text-red-400 font-medium">AI解析エラー</p>
+              <p className="text-[10px] text-red-300/70 mt-0.5 break-all">{analyzeError}</p>
             </div>
           )}
 

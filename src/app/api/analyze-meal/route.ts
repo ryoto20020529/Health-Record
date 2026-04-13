@@ -80,9 +80,17 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(JSON.parse(jsonMatch[0]));
           } else {
             console.error('[analyze-meal] Failed to extract JSON from content:', content);
+            return NextResponse.json(
+              { error: `OpenAI レスポンスのJSON抽出失敗: ${content}` },
+              { status: 500 }
+            );
           }
         } else {
           console.error('[analyze-meal] No content in OpenAI response:', JSON.stringify(data));
+          return NextResponse.json(
+            { error: `OpenAI からコンテンツが返りませんでした: ${JSON.stringify(data)}` },
+            { status: 500 }
+          );
         }
       } else {
         const errorBody = await response.text();
@@ -132,9 +140,17 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(JSON.parse(jsonMatch[0]));
           } else {
             console.error('[analyze-meal] Failed to extract JSON from Gemini content:', content);
+            return NextResponse.json(
+              { error: `Gemini レスポンスのJSON抽出失敗: ${content}` },
+              { status: 500 }
+            );
           }
         } else {
           console.error('[analyze-meal] No content in Gemini response:', JSON.stringify(data));
+          return NextResponse.json(
+            { error: `Gemini からコンテンツが返りませんでした: ${JSON.stringify(data)}` },
+            { status: 500 }
+          );
         }
       } else {
         const errorBody = await response.text();
