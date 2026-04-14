@@ -1,12 +1,29 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Settings, Save, CheckCircle, LogOut } from 'lucide-react';
+import { Settings, Save, CheckCircle, LogOut, Heart, Copy, Loader2, AlertCircle } from 'lucide-react';
 import { getUserSettingsDB, saveUserSettingsDB } from '@/lib/database';
 import { calculateAllFromSettings } from '@/lib/calculations';
 import { ACTIVITY_LEVEL_LABELS } from '@/lib/constants';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { createClient } from '@/lib/supabase';
 import type { Gender, ActivityLevel, UserSettings } from '@/lib/types';
+
+function CopyButton({ text, label }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <button onClick={handleCopy}
+      className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 active:bg-emerald-500/20 transition-all text-[10px] text-white/40 active:text-emerald-400">
+      {copied ? <CheckCircle size={12} className="text-emerald-400" /> : <Copy size={12} />}
+      {label && <span>{copied ? 'コピー済' : label}</span>}
+    </button>
+  );
+}
 
 export default function SettingsPage() {
   const { user, signOut } = useAuth();
@@ -18,6 +35,39 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  // Apple Health 連携
+  const [syncToken, setSyncToken] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncLoading, setSyncLoading] = useState(true);
+
+  const syncUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}/api/health-sync`
+      : '/api/health-sync';
+
+  const loadSyncToken = useCallback(async () => {
+    setSyncLoading(true);
+    setSyncError(null);
+    try {
+      const { data } = await createClient().auth.getSession();
+      const jwt = data.session?.access_token;
+      if (!jwt) { setSyncLoading(false); return; }
+
+      const res = await fetch('/api/health-sync/setup', {
+        headers: { Authorization: `Bearer ${jwt}` },
+      });
+      const d = await res.json();
+      if (res.ok) {
+        setSyncToken(d.token);
+      } else {
+        setSyncError(d.error ?? 'トークン取得失敗');
+      }
+    } catch {
+      setSyncError('通信エラー');
+    }
+    setSyncLoading(false);
+  }, []);
 
   const loadSettings = useCallback(async () => {
     try {
@@ -37,14 +87,14 @@ export default function SettingsPage() {
   useEffect(() => {
     setMounted(true);
     loadSettings();
-  }, [loadSettings]);
+    loadSyncToken();
+  }, [loadSettings, loadSyncToken]);
 
   const handleSave = async () => {
     const h = parseFloat(height);
     const w = parseFloat(weight);
     const a = parseInt(age);
     if (!h || !w || !a) return;
-
     setSaving(true);
     try {
       const calculated = calculateAllFromSettings(h, w, a, gender, activityLevel);
@@ -121,6 +171,135 @@ export default function SettingsPage() {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Apple Health 連携 */}
+      <div className="glass-card space-y-4">
+        <div className="flex items-center gap-2">
+          <Heart size={16} className="text-red-400" />
+          <h3 className="text-sm font-semibold text-white/80">Apple Health 連携</h3>
+          <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">自動同期</span>
+        </div>
+
+        {syncLoading ? (
+          <div className="flex items-center gap-2 text-white/30 text-xs">
+            <Loader2 size={14} className="animate-spin" />設定を読み込み中...
+          </div>
+        ) : syncError ? (
+          <div className="space-y-3">
+            <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+              <AlertCircle size={14} className="text-amber-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-xs text-amber-300 font-medium">セットアップが必要です</p>
+                <p className="text-[10px] text-amber-300/60 leading-relaxed">{syncError}</p>
+              </div>
+            </div>
+            <div className="p-3 rounded-xl bg-white/3 border border-white/8 space-y-2">
+              <p className="text-[10px] text-white/50 font-medium">追加手順：</p>
+              <ol className="text-[10px] text-white/40 space-y-1 list-decimal list-inside leading-relaxed">
+                <li>Supabase Dashboard → Settings → API を開く</li>
+                <li><code className="text-emerald-300">service_role</code>（secret）をコピー</li>
+                <li><code className="text-cyan-300">.env.local</code> に以下を追加してサーバーを再起動</li>
+              </ol>
+              <div className="mt-2 flex items-center gap-2">
+                <code className="flex-1 text-[10px] bg-black/30 rounded px-2 py-1.5 text-white/50">
+                  SUPABASE_SERVICE_ROLE_KEY=eyJ...
+                </code>
+                <button onClick={loadSyncToken}
+                  className="shrink-0 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[10px] text-white/40 active:bg-white/10 transition-all">
+                  再読込
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : syncToken ? (
+          <div className="space-y-4">
+            {/* トークン */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-[10px] text-white/40">同期トークン</p>
+                <CopyButton text={syncToken} label="コピー" />
+              </div>
+              <code className="block w-full text-[9px] bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-emerald-300 break-all">
+                {syncToken}
+              </code>
+            </div>
+
+            {/* 同期URL */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-[10px] text-white/40">同期URL</p>
+                <CopyButton text={syncUrl} label="コピー" />
+              </div>
+              <code className="block w-full text-[9px] bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-cyan-300 break-all">
+                {syncUrl}
+              </code>
+            </div>
+
+            {/* ショートカット設定ガイド */}
+            <div className="border-t border-white/8 pt-4 space-y-3">
+              <p className="text-[10px] text-white/50 font-medium">iPhoneショートカット設定</p>
+
+              {[
+                {
+                  step: '1',
+                  label: 'アクションを追加',
+                  desc: '「ヘルスケアサンプルを見つける」を2つ追加',
+                  sub: ['① 種類: アクティブエネルギー / 期間: 今日 / 集計: 合計',
+                        '② 種類: 歩数 / 期間: 今日 / 集計: 合計'],
+                },
+                {
+                  step: '2',
+                  label: '「URLのコンテンツを取得」を追加',
+                  desc: '以下の値を設定してください',
+                  fields: [
+                    { label: 'URL', value: syncUrl },
+                    { label: '方法', value: 'POST' },
+                    { label: 'ヘッダー名', value: 'Authorization' },
+                    { label: 'ヘッダー値', value: `Bearer ${syncToken}` },
+                    { label: '本文タイプ', value: 'JSON' },
+                  ],
+                },
+                {
+                  step: '3',
+                  label: 'JSONキーを追加',
+                  desc: '本文に以下のキーを設定',
+                  fields: [
+                    { label: 'date', value: '日付フォーマット (YYYY-MM-DD) → 変数で今日の日付' },
+                    { label: 'steps', value: '② の歩数結果 → 変数で設定' },
+                    { label: 'activeCalories', value: '① のアクティブエネルギー結果 → 変数で設定' },
+                  ],
+                },
+                {
+                  step: '4',
+                  label: 'オートメーション設定（任意）',
+                  desc: 'ショートカットアプリ → オートメーション → 時刻 → 毎日23:00に設定すると自動同期されます',
+                  sub: [],
+                },
+              ].map((s) => (
+                <div key={s.step} className="flex gap-3">
+                  <span className="w-5 h-5 rounded-full bg-red-500/20 text-red-400 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                    {s.step}
+                  </span>
+                  <div className="flex-1 space-y-1">
+                    <p className="text-[11px] text-white/70 font-medium">{s.label}</p>
+                    <p className="text-[10px] text-white/35 leading-relaxed">{s.desc}</p>
+                    {s.sub?.map((t, i) => (
+                      <p key={i} className="text-[9px] text-white/30 ml-2">{t}</p>
+                    ))}
+                    {s.fields?.map((f) => (
+                      <div key={f.label} className="flex items-center gap-2 mt-1.5">
+                        <span className="text-[9px] text-white/30 w-20 shrink-0">{f.label}</span>
+                        <code className="flex-1 text-[9px] bg-black/20 rounded px-2 py-1 text-white/50 truncate">{f.value}</code>
+                        <CopyButton text={f.value} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* 保存ボタン */}
