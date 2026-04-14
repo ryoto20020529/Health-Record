@@ -2,14 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Scale, UtensilsCrossed, Dumbbell, Users } from 'lucide-react';
+import { Home, UtensilsCrossed, Dumbbell, Activity, BarChart2 } from 'lucide-react';
 
 const NAV_ITEMS = [
   { href: '/', icon: Home, label: 'ホーム' },
-  { href: '/weight', icon: Scale, label: '体重管理' },
   { href: '/meals', icon: UtensilsCrossed, label: '食事' },
-  { href: '/exercise', icon: Dumbbell, label: '運動' },
-  { href: '/groups', icon: Users, label: '仲間' },
+  { href: '/workout', icon: Dumbbell, label: 'ワークアウト' },
+  { href: '/exercise', icon: Activity, label: '運動' },
+  { href: '/report', icon: BarChart2, label: 'レポート' },
 ];
 
 export function Navigation() {

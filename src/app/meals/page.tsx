@@ -263,6 +263,68 @@ export default function MealsPage() {
         )}
       </div>
 
+      {/* PFC円グラフ */}
+      {totalCal > 0 && (() => {
+        const r = 38, cx = 50, cy = 50;
+        const circ = 2 * Math.PI * r;
+        const pCal = totalP * 4, fCal = totalF * 9, cCal = totalC * 4;
+        const total = pCal + fCal + cCal || 1;
+        const pLen = (pCal / total) * circ;
+        const fLen = (fCal / total) * circ;
+        const cLen = (cCal / total) * circ;
+        const pAngle = (pCal / total) * 360;
+        const fAngle = (fCal / total) * 360;
+        const segments = [
+          { len: pLen, color: '#10b981', label: 'P タンパク質', value: `${totalP}g`, kcal: Math.round(pCal), rotate: -90 },
+          { len: fLen, color: '#06b6d4', label: 'F 脂質', value: `${totalF}g`, kcal: Math.round(fCal), rotate: -90 + pAngle },
+          { len: cLen, color: '#3b82f6', label: 'C 炭水化物', value: `${totalC}g`, kcal: Math.round(cCal), rotate: -90 + pAngle + fAngle },
+        ];
+        return (
+          <div className="glass-card">
+            <h3 className="text-xs font-semibold text-white/60 mb-3">PFCバランス</h3>
+            <div className="flex items-center gap-5">
+              <div className="relative shrink-0">
+                <svg viewBox="0 0 100 100" className="w-28 h-28">
+                  {segments.map((seg, i) => (
+                    <circle key={i} cx={cx} cy={cy} r={r} fill="none"
+                      stroke={seg.color} strokeWidth="14" strokeLinecap="butt"
+                      strokeDasharray={`${seg.len} ${circ}`}
+                      strokeDashoffset={0}
+                      transform={`rotate(${seg.rotate} ${cx} ${cy})`}
+                      opacity={0.85}
+                    />
+                  ))}
+                  <text x="50" y="46" textAnchor="middle" className="text-[10px]" fill="white" fontSize="10" fontWeight="bold">{totalCal}</text>
+                  <text x="50" y="57" textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="6.5">kcal</text>
+                </svg>
+              </div>
+              <div className="flex-1 space-y-2">
+                {segments.map((seg, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: seg.color }} />
+                      <span className="text-[11px] text-white/60">{seg.label}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs font-bold text-white/90">{seg.value}</span>
+                      <span className="text-[9px] text-white/30 ml-1">{seg.kcal}kcal</span>
+                    </div>
+                  </div>
+                ))}
+                <div className="pt-1 border-t border-white/8">
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-white/40">目標達成率</span>
+                    <span className={`font-bold ${settings && totalCal <= settings.targetCalories ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {settings ? Math.round((totalCal / settings.targetCalories) * 100) : '-'}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* 入力フォーム */}
       {showForm && (
         <div className="glass-card slide-up space-y-4">

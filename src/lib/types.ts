@@ -20,6 +20,7 @@ export interface UserSettings {
   targetProtein: number; // g
   targetFat: number; // g
   targetCarbs: number; // g
+  phase?: Phase; // 増量期/維持期/減量期
 }
 
 // 体重記録
@@ -116,6 +117,21 @@ export interface GroupActivityFeed {
   userName: string;
   type: 'exercise_complete' | 'meal_logged' | 'goal_achieved';
   message: string;
+  createdAt: string;
+}
+
+// 筋トレ
+export type MuscleGroup = '胸' | '背中' | '脚' | '肩' | '腕' | '腹' | 'その他';
+export type Phase = 'cut' | 'maintain' | 'bulk';
+
+export interface WorkoutSet {
+  id: string;
+  date: string;
+  exerciseName: string;
+  muscleGroup: MuscleGroup;
+  setNumber: number;
+  reps: number;
+  weightKg: number;
   createdAt: string;
 }
 

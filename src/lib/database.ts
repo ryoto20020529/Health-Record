@@ -1,5 +1,5 @@
 import { createClient } from './supabase';
-import type { UserSettings, WeightRecord, MealRecord, ExerciseRecord } from './types';
+import type { UserSettings, WeightRecord, MealRecord, ExerciseRecord, WorkoutSet } from './types';
 
 function db() {
   return createClient();
@@ -303,6 +303,58 @@ export async function saveGoalDB(goal: import('./types').GoalPlan): Promise<void
 
 export async function deleteGoalDB(id: string): Promise<void> {
   const { error } = await db().from('goal_plans').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ---- Workout Sets ----
+export async function getWorkoutSetsByDateDB(date: string): Promise<WorkoutSet[]> {
+  const user = await getCurrentUser();
+  if (!user) return [];
+  const { data } = await db()
+    .from('workout_sets')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('date', date)
+    .order('created_at', { ascending: true });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data || []).map((r: any) => ({
+    id: r.id, date: r.date, exerciseName: r.exercise_name,
+    muscleGroup: r.muscle_group, setNumber: r.set_number,
+    reps: r.reps, weightKg: r.weight_kg, createdAt: r.created_at,
+  }));
+}
+
+export async function getWorkoutSetsByExerciseDB(exerciseName: string): Promise<WorkoutSet[]> {
+  const user = await getCurrentUser();
+  if (!user) return [];
+  const { data } = await db()
+    .from('workout_sets')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('exercise_name', exerciseName)
+    .order('weight_kg', { ascending: false });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data || []).map((r: any) => ({
+    id: r.id, date: r.date, exerciseName: r.exercise_name,
+    muscleGroup: r.muscle_group, setNumber: r.set_number,
+    reps: r.reps, weightKg: r.weight_kg, createdAt: r.created_at,
+  }));
+}
+
+export async function saveWorkoutSetDB(set: WorkoutSet): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) throw new Error('Not authenticated');
+  const { error } = await db().from('workout_sets').upsert({
+    id: set.id, user_id: user.id, date: set.date,
+    exercise_name: set.exerciseName, muscle_group: set.muscleGroup,
+    set_number: set.setNumber, reps: set.reps, weight_kg: set.weightKg,
+    created_at: set.createdAt,
+  });
+  if (error) throw error;
+}
+
+export async function deleteWorkoutSetDB(id: string): Promise<void> {
+  const { error } = await db().from('workout_sets').delete().eq('id', id);
   if (error) throw error;
 }
 

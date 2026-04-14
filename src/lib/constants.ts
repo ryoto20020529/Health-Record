@@ -1,4 +1,4 @@
-import { ExercisePreset, FoodItem } from './types';
+import { ExercisePreset, FoodItem, MuscleGroup } from './types';
 
 // ── 運動プリセット（METs値は国立健康・栄養研究所準拠）──
 export const EXERCISE_PRESETS: ExercisePreset[] = [
@@ -89,6 +89,31 @@ export const FOOD_DATABASE: FoodItem[] = [
   { name: 'チキンサラダ', calories: 250, protein: 25.0, fat: 12.0, carbs: 10.0, category: 'other' },
   { name: 'オートミール（1食分）', calories: 150, protein: 5.0, fat: 2.5, carbs: 27.0, category: 'other' },
 ];
+
+// ── 筋トレ種目マスタ ──
+export const WORKOUT_EXERCISES: Record<MuscleGroup, string[]> = {
+  '胸': ['ベンチプレス', 'インクラインベンチ', 'ダンベルフライ', 'チェストプレス', 'プッシュアップ', 'ケーブルクロスオーバー'],
+  '背中': ['デッドリフト', 'ラットプルダウン', 'ベントオーバーロウ', 'チンニング', 'シーテッドロウ', 'ワンアームロウ'],
+  '脚': ['スクワット', 'レッグプレス', 'ルーマニアンデッドリフト', 'レッグカール', 'レッグエクステンション', 'カーフレイズ', 'ブルガリアンスクワット'],
+  '肩': ['ショルダープレス', 'サイドレイズ', 'フロントレイズ', 'フェイスプル', 'アーノルドプレス', 'リアデルトフライ'],
+  '腕': ['バーベルカール', 'ダンベルカール', 'ハンマーカール', 'トライセップスエクステンション', 'ケーブルプッシュダウン', 'ディップス'],
+  '腹': ['クランチ', 'レッグレイズ', 'プランク', 'アブローラー', 'ツイストクランチ', 'ハンギングレッグレイズ'],
+  'その他': ['バーピー', 'ケトルベル', 'バトルロープ', 'フェイスプル'],
+};
+
+export const MUSCLE_GROUP_EMOJI: Record<MuscleGroup, string> = {
+  '胸': '💪', '背中': '🔙', '脚': '🦵', '肩': '🏋️', '腕': '💪', '腹': '🎯', 'その他': '⚡',
+};
+
+export const MUSCLE_GROUP_COLOR: Record<MuscleGroup, string> = {
+  '胸':   'from-red-500/20 to-rose-500/20 border-red-500/40 text-red-300',
+  '背中': 'from-blue-500/20 to-indigo-500/20 border-blue-500/40 text-blue-300',
+  '脚':   'from-purple-500/20 to-violet-500/20 border-purple-500/40 text-purple-300',
+  '肩':   'from-orange-500/20 to-amber-500/20 border-orange-500/40 text-orange-300',
+  '腕':   'from-cyan-500/20 to-sky-500/20 border-cyan-500/40 text-cyan-300',
+  '腹':   'from-emerald-500/20 to-green-500/20 border-emerald-500/40 text-emerald-300',
+  'その他': 'from-white/8 to-white/5 border-white/20 text-white/60',
+};
 
 // 歩数からカロリーを推定（体重と歩幅ベース）
 export function estimateStepCalories(steps: number, weightKg: number): number {

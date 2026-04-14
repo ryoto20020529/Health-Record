@@ -7,7 +7,7 @@ import { calculateAllFromSettings } from '@/lib/calculations';
 import { ACTIVITY_LEVEL_LABELS } from '@/lib/constants';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { createClient } from '@/lib/supabase';
-import type { Gender, ActivityLevel, UserSettings } from '@/lib/types';
+import type { Gender, ActivityLevel, UserSettings, Phase } from '@/lib/types';
 
 function CopyButton({ text, label }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
@@ -32,6 +32,7 @@ export default function SettingsPage() {
   const [age, setAge] = useState('');
   const [gender, setGender] = useState<Gender>('male');
   const [activityLevel, setActivityLevel] = useState<ActivityLevel>('moderate');
+  const [phase, setPhase] = useState<Phase>('maintain');
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -78,6 +79,7 @@ export default function SettingsPage() {
         setAge(s.age.toString());
         setGender(s.gender);
         setActivityLevel(s.activityLevel);
+        if (s.phase) setPhase(s.phase);
       }
     } catch (err) {
       console.error('Settings load error:', err);
@@ -98,7 +100,15 @@ export default function SettingsPage() {
     setSaving(true);
     try {
       const calculated = calculateAllFromSettings(h, w, a, gender, activityLevel);
-      const settings: UserSettings = { height: h, weight: w, age: a, gender, activityLevel, ...calculated };
+      // フェーズに応じてカロリー調整
+      const phaseOffset = phase === 'bulk' ? 350 : phase === 'cut' ? -450 : 0;
+      const phaseProtein = phase === 'cut' ? w * 2.2 : phase === 'bulk' ? w * 2.0 : w * 1.8;
+      const settings: UserSettings = {
+        height: h, weight: w, age: a, gender, activityLevel, phase,
+        ...calculated,
+        targetCalories: Math.max(1200, calculated.targetCalories + phaseOffset),
+        targetProtein: Math.round(phaseProtein),
+      };
       await saveUserSettingsDB(settings);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -170,6 +180,27 @@ export default function SettingsPage() {
                 }`}>{label}</button>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* フェーズモード */}
+      <div className="glass-card space-y-3">
+        <h3 className="text-sm font-semibold text-white/80">トレーニングフェーズ</h3>
+        <p className="text-[10px] text-white/35 leading-relaxed">選択するとカロリー・タンパク質目標が自動調整されます</p>
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            { value: 'cut',      label: '減量期', sub: '-450kcal', color: 'from-blue-500/25 to-cyan-500/25 border-blue-500/40 text-blue-300' },
+            { value: 'maintain', label: '維持期', sub: '±0kcal',   color: 'from-emerald-500/25 to-teal-500/25 border-emerald-500/40 text-emerald-300' },
+            { value: 'bulk',     label: '増量期', sub: '+350kcal', color: 'from-orange-500/25 to-amber-500/25 border-orange-500/40 text-orange-300' },
+          ] as { value: Phase; label: string; sub: string; color: string }[]).map(p => (
+            <button key={p.value} onClick={() => setPhase(p.value)}
+              className={`py-3 rounded-xl text-center border transition-all active:scale-95 bg-linear-to-b ${
+                phase === p.value ? p.color : 'bg-white/5 border-white/10 text-white/40'
+              }`}>
+              <p className="text-xs font-bold">{p.label}</p>
+              <p className="text-[9px] mt-0.5 opacity-70">{p.sub}</p>
+            </button>
+          ))}
         </div>
       </div>
 

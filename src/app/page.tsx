@@ -36,6 +36,7 @@ export default function DashboardPage() {
   const [showStepInput, setShowStepInput] = useState(false);
   const [stepInput, setStepInput] = useState('');
   const [uploadingWeight, setUploadingWeight] = useState(false);
+  const [todayWater, setTodayWater] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,6 +71,13 @@ export default function DashboardPage() {
     setShowWeightModal(false);
     setNewWeight('');
     setNewPhoto(undefined);
+  };
+
+  const handleAddWater = (ml: number) => {
+    const today = getTodayString();
+    const newTotal = todayWater + ml;
+    setTodayWater(newTotal);
+    localStorage.setItem(`water-${today}`, newTotal.toString());
   };
 
   const handleSaveSteps = () => {
@@ -124,6 +132,10 @@ export default function DashboardPage() {
       // 歩数データをローカルストレージから取得
       const savedSteps = localStorage.getItem(`steps-${today}`);
       if (savedSteps) setTodaySteps(parseInt(savedSteps));
+
+      // 水分摂取量をローカルストレージから取得
+      const savedWater = localStorage.getItem(`water-${today}`);
+      if (savedWater) setTodayWater(parseInt(savedWater));
     } catch (err) {
       console.error('Dashboard load error:', err);
     }
@@ -333,6 +345,53 @@ export default function DashboardPage() {
               <div className="text-sm font-bold text-violet-300">{stepCalories}</div>
               <div className="text-[8px] text-white/30">kcal</div>
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* 水分摂取 */}
+      <div className="glass-card">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-semibold text-white/70 flex items-center gap-2">
+            💧 水分摂取
+          </h3>
+          <span className="text-[10px] text-white/40">目標 2,000ml</span>
+        </div>
+        <div className="flex items-end gap-4 mb-3">
+          <div>
+            <div className="text-2xl font-bold text-cyan-400">{todayWater.toLocaleString()}</div>
+            <div className="text-[9px] text-white/40">ml</div>
+          </div>
+          <div className="flex-1">
+            <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-linear-to-r from-cyan-500 to-blue-500 transition-all duration-500"
+                style={{ width: `${Math.min((todayWater / 2000) * 100, 100)}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-[8px] text-white/30 mt-1">
+              <span>0</span>
+              <span>{todayWater >= 2000 ? '✓ 達成！' : `残り ${2000 - todayWater}ml`}</span>
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          {[200, 350, 500].map(ml => (
+            <button
+              key={ml}
+              onClick={() => handleAddWater(ml)}
+              className="flex-1 py-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs font-semibold active:scale-95 transition-all hover:bg-cyan-500/20"
+            >
+              +{ml}ml
+            </button>
+          ))}
+          {todayWater > 0 && (
+            <button
+              onClick={() => { setTodayWater(0); localStorage.removeItem(`water-${getTodayString()}`); }}
+              className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white/30 text-xs active:scale-95 transition-all"
+            >
+              リセット
+            </button>
           )}
         </div>
       </div>
