@@ -1,13 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase-admin';
 
+export const maxDuration = 60;
+
 export async function GET(req: NextRequest) {
   // Bearer JWT で認証
   const authHeader = req.headers.get('authorization');
   const jwt = authHeader?.replace('Bearer ', '');
   if (!jwt) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const admin = createAdminClient();
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (e) {
+    console.error('Admin client error:', e);
+    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+  }
   const { data: { user }, error: authError } = await admin.auth.getUser(jwt);
   if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -128,7 +136,9 @@ ${JSON.stringify(dailySummaries, null, 2)}
   });
 
   if (!response.ok) {
-    return NextResponse.json({ error: 'OpenAI API error' }, { status: 500 });
+    const errText = await response.text().catch(() => '');
+    console.error('OpenAI error:', response.status, errText);
+    return NextResponse.json({ error: `OpenAI API error: ${response.status}` }, { status: 500 });
   }
 
   const json = await response.json();
