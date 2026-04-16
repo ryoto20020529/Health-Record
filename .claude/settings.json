@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(vercel --version)",
+      "Bash(vercel env:*)",
+      "Bash(vercel link:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)",
+      "Bash(vercel deploy:*)",
+      "Bash(vercel inspect:*)",
+      "WebFetch(domain:health-record-5po7q65g4-ryoto20020529s-projects.vercel.app)",
+      "Bash(vercel alias:*)",
+      "WebFetch(domain:health-record-fawn.vercel.app)"
+    ]
+  }
+}
