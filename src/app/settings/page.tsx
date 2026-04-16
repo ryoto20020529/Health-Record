@@ -25,6 +25,55 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
   );
 }
 
+function TestSyncButton({ syncUrl, syncToken }: { syncUrl: string; syncToken: string }) {
+  const [status, setStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle');
+  const [detail, setDetail] = useState('');
+
+  const handleTest = async () => {
+    setStatus('loading');
+    setDetail('');
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const res = await fetch(syncUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${syncToken}`,
+        },
+        body: JSON.stringify({ date: today, steps: 1234, activeCalories: 56 }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setStatus('ok');
+        setDetail(json.synced?.join('、') ?? '');
+      } else {
+        setStatus('error');
+        setDetail(json.error ?? `HTTP ${res.status}`);
+      }
+    } catch (e) {
+      setStatus('error');
+      setDetail('通信エラー');
+    }
+    setTimeout(() => setStatus('idle'), 5000);
+  };
+
+  return (
+    <div className="space-y-2">
+      <button onClick={handleTest} disabled={status === 'loading'}
+        className="w-full py-2.5 rounded-xl text-xs font-semibold border transition-all active:scale-95 disabled:opacity-40
+          bg-red-500/10 border-red-500/25 text-red-300 hover:bg-red-500/20">
+        {status === 'loading' ? '送信中...' : '🔗 接続テスト（テストデータ送信）'}
+      </button>
+      {status === 'ok' && (
+        <p className="text-[10px] text-emerald-400 text-center">✓ 接続成功！ {detail}</p>
+      )}
+      {status === 'error' && (
+        <p className="text-[10px] text-red-400 text-center">✗ エラー: {detail}</p>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const { user, signOut } = useAuth();
   const [height, setHeight] = useState('');
@@ -267,22 +316,30 @@ export default function SettingsPage() {
               </code>
             </div>
 
+            {/* テスト送信ボタン */}
+            <TestSyncButton syncUrl={syncUrl} syncToken={syncToken} />
+
             {/* ショートカット設定ガイド */}
             <div className="border-t border-white/8 pt-4 space-y-3">
-              <p className="text-[10px] text-white/50 font-medium">iPhoneショートカット設定</p>
+              <p className="text-[10px] text-white/50 font-medium">iPhoneショートカット設定（新規または更新）</p>
 
               {[
                 {
                   step: '1',
-                  label: 'アクションを追加',
-                  desc: '「ヘルスケアサンプルを見つける」を2つ追加',
-                  sub: ['① 種類: アクティブエネルギー / 期間: 今日 / 集計: 合計',
-                        '② 種類: 歩数 / 期間: 今日 / 集計: 合計'],
+                  label: '歩数を取得',
+                  desc: '「ヘルスケアサンプルを検索」を追加',
+                  sub: ['種類: 歩数　期間: 今日　グループ分け: 日', '続けて「値を取得」を追加 → 変数名: Steps'],
                 },
                 {
                   step: '2',
+                  label: 'アクティブエネルギーを取得',
+                  desc: '「ヘルスケアサンプルを検索」をもう1つ追加',
+                  sub: ['種類: アクティブエネルギー　期間: 今日　グループ分け: 日', '続けて「値を取得」を追加 → 変数名: Calories'],
+                },
+                {
+                  step: '3',
                   label: '「URLのコンテンツを取得」を追加',
-                  desc: '以下の値を設定してください',
+                  desc: '以下の値を設定（URLとトークンは上からコピー）',
                   fields: [
                     { label: 'URL', value: syncUrl },
                     { label: '方法', value: 'POST' },
@@ -292,19 +349,19 @@ export default function SettingsPage() {
                   ],
                 },
                 {
-                  step: '3',
-                  label: 'JSONキーを追加',
-                  desc: '本文に以下のキーを設定',
-                  fields: [
-                    { label: 'date', value: '日付フォーマット (YYYY-MM-DD) → 変数で今日の日付' },
-                    { label: 'steps', value: '② の歩数結果 → 変数で設定' },
-                    { label: 'activeCalories', value: '① のアクティブエネルギー結果 → 変数で設定' },
+                  step: '4',
+                  label: '本文のJSONキーを設定',
+                  desc: '「リクエスト本文」に以下のキーを追加',
+                  sub: [
+                    'date → 日付フォーマット「yyyy-MM-dd」で今日の日付',
+                    'steps → 変数「Steps」',
+                    'activeCalories → 変数「Calories」',
                   ],
                 },
                 {
-                  step: '4',
+                  step: '5',
                   label: 'オートメーション設定（任意）',
-                  desc: 'ショートカットアプリ → オートメーション → 時刻 → 毎日23:00に設定すると自動同期されます',
+                  desc: 'ショートカットアプリ → オートメーション → 時刻 → 毎日23:00で自動同期',
                   sub: [],
                 },
               ].map((s) => (
@@ -316,7 +373,7 @@ export default function SettingsPage() {
                     <p className="text-[11px] text-white/70 font-medium">{s.label}</p>
                     <p className="text-[10px] text-white/35 leading-relaxed">{s.desc}</p>
                     {s.sub?.map((t, i) => (
-                      <p key={i} className="text-[9px] text-white/30 ml-2">{t}</p>
+                      <p key={i} className="text-[9px] text-white/30 ml-2">・{t}</p>
                     ))}
                     {s.fields?.map((f) => (
                       <div key={f.label} className="flex items-center gap-2 mt-1.5">
