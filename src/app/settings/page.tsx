@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Settings, Save, CheckCircle, LogOut, Heart, Copy, Loader2, AlertCircle } from 'lucide-react';
+import { Settings, Save, CheckCircle, LogOut, Heart, Copy, Loader2, AlertCircle, Crown, Zap, Star } from 'lucide-react';
 import { getUserSettingsDB, saveUserSettingsDB } from '@/lib/database';
 import { calculateAllFromSettings } from '@/lib/calculations';
 import { ACTIVITY_LEVEL_LABELS } from '@/lib/constants';
@@ -86,6 +86,10 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [mounted, setMounted] = useState(false);
 
+  // プレミアムサブスクリプション
+  const [isPremium, setIsPremium] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+
   // Apple Health 連携
   const [syncToken, setSyncToken] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -135,11 +139,45 @@ export default function SettingsPage() {
     }
   }, []);
 
+  // プレミアム状態をロード
+  const loadPremium = useCallback(async () => {
+    try {
+      const { data } = await createClient().auth.getSession();
+      const jwt = data.session?.access_token;
+      if (!jwt) return;
+      const res = await fetch('/api/subscription/status', {
+        headers: { Authorization: `Bearer ${jwt}` },
+      });
+      if (res.ok) {
+        const d = await res.json();
+        setIsPremium(d.isPremium ?? false);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  // Stripeチェックアウト
+  const handleCheckout = async () => {
+    setCheckoutLoading(true);
+    try {
+      const { data } = await createClient().auth.getSession();
+      const jwt = data.session?.access_token;
+      if (!jwt) return;
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${jwt}` },
+      });
+      const d = await res.json();
+      if (d.url) window.location.href = d.url;
+    } catch { /* ignore */ }
+    setCheckoutLoading(false);
+  };
+
   useEffect(() => {
     setMounted(true);
     loadSettings();
     loadSyncToken();
-  }, [loadSettings, loadSyncToken]);
+    loadPremium();
+  }, [loadSettings, loadSyncToken, loadPremium]);
 
   const handleSave = async () => {
     const h = parseFloat(height);
@@ -388,6 +426,68 @@ export default function SettingsPage() {
             </div>
           </div>
         ) : null}
+      </div>
+
+      {/* プレミアムプラン */}
+      <div className={`glass-card space-y-4 relative overflow-hidden ${isPremium ? 'border-amber-500/30' : ''}`}>
+        {isPremium && (
+          <div className="absolute inset-0 bg-linear-to-br from-amber-500/5 to-orange-500/5 pointer-events-none" />
+        )}
+        <div className="relative flex items-center gap-2">
+          <Crown size={16} className={isPremium ? 'text-amber-400' : 'text-white/30'} />
+          <h3 className="text-sm font-semibold text-white/80">プレミアムプラン</h3>
+          {isPremium && (
+            <span className="ml-auto text-[9px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold">
+              ✓ 有効
+            </span>
+          )}
+        </div>
+
+        {isPremium ? (
+          <div className="relative space-y-2">
+            <p className="text-xs text-white/60">プレミアム機能がすべて有効です。</p>
+            <div className="grid grid-cols-1 gap-1.5">
+              {[
+                '📸 高精度AI食事解析（文部科学省DBで照合）',
+                '📊 AI週次フィットネスレポート',
+                '🎯 フェーズ別PFC自動最適化',
+                '🔗 Apple Healthリアルタイム同期',
+              ].map((f, i) => (
+                <div key={i} className="flex items-center gap-2 text-[11px] text-white/60">
+                  <CheckCircle size={11} className="text-amber-400 shrink-0" />
+                  {f}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="relative space-y-3">
+            <div className="grid grid-cols-1 gap-1.5">
+              {[
+                { icon: <Star size={11} className="text-amber-400 shrink-0" />, text: '📸 高精度AI食事解析 — 文部科学省 300品目DBで照合、誤差±20kcal以内' },
+                { icon: <Zap size={11} className="text-violet-400 shrink-0" />, text: '📊 毎週AIが1週間を分析・スコアリング' },
+                { icon: <Star size={11} className="text-cyan-400 shrink-0" />, text: '🎯 減量期/増量期フェーズ別PFC自動設定' },
+              ].map((f, i) => (
+                <div key={i} className="flex items-start gap-2 text-[11px] text-white/55">
+                  {f.icon}{f.text}
+                </div>
+              ))}
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-2xl font-bold text-white">¥980</span>
+              <span className="text-xs text-white/40">/ 月</span>
+            </div>
+            <button
+              onClick={handleCheckout}
+              disabled={checkoutLoading}
+              className="w-full py-3 rounded-xl bg-linear-to-r from-amber-500 to-orange-500 text-white text-sm font-bold active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              <Crown size={15} />
+              {checkoutLoading ? '処理中...' : 'プレミアムにアップグレード'}
+            </button>
+            <p className="text-[9px] text-white/25 text-center">いつでもキャンセル可能 · Stripe決済</p>
+          </div>
+        )}
       </div>
 
       {/* 保存ボタン */}

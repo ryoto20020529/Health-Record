@@ -12,6 +12,7 @@ import {
 } from '@/lib/database';
 import { uploadPhoto } from '@/lib/storage-upload';
 import { MEAL_TYPE_LABELS, autoDetectMealType, FOOD_DATABASE } from '@/lib/constants';
+import { createClient } from '@/lib/supabase';
 import type { MealRecord, UserSettings, FoodItem } from '@/lib/types';
 
 export default function MealsPage() {
@@ -34,6 +35,7 @@ export default function MealsPage() {
   const [aiSource, setAiSource] = useState('');
   const [analyzeError, setAnalyzeError] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const loadData = useCallback(async (date: string) => {
@@ -49,6 +51,21 @@ export default function MealsPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
+    // プレミアム状態をロード
+    (async () => {
+      try {
+        const { data } = await createClient().auth.getSession();
+        const jwt = data.session?.access_token;
+        if (!jwt) return;
+        const res = await fetch('/api/subscription/status', {
+          headers: { Authorization: `Bearer ${jwt}` },
+        });
+        if (res.ok) {
+          const d = await res.json();
+          setIsPremium(d.isPremium ?? false);
+        }
+      } catch { /* ignore */ }
+    })();
   }, []);
 
   useEffect(() => {
@@ -143,7 +160,7 @@ export default function MealsPage() {
       const res = await fetch('/api/analyze-meal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: imageData }),
+        body: JSON.stringify({ image: imageData, premium: isPremium }),
       });
       const data = await res.json();
       if (res.ok) {
