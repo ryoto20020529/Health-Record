@@ -11,7 +11,10 @@
       "Bash(vercel inspect:*)",
       "WebFetch(domain:health-record-5po7q65g4-ryoto20020529s-projects.vercel.app)",
       "Bash(vercel alias:*)",
-      "WebFetch(domain:health-record-fawn.vercel.app)"
+      "WebFetch(domain:health-record-fawn.vercel.app)",
+      "WebFetch(domain:fooddb.mext.go.jp)",
+      "WebFetch(domain:www.mext.go.jp)",
+      "WebSearch"
     ]
   }
 }
